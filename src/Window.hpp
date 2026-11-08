@@ -24,8 +24,9 @@ struct Window {
     void Init(uint32_t width, uint32_t height, std::string title) {
         glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
         glfwInit();
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+        // OpenGL 4.5 (supports things we need for vertex pulling)
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
         windowPtr = glfwCreateWindow(width, height, title.c_str(), NULL, NULL);

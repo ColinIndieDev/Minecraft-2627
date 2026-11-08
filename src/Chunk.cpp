@@ -9,150 +9,46 @@
 #include "GLUtil.hpp"
 #include "BlockTexture.hpp"
 
-void AddVertex(std::vector<float> &list, float x, float y, float z, float nx, float ny, float nz, float u, float v, BlockTexture blockTex) {
-    list.push_back(x);
-    list.push_back(y);
-    list.push_back(z);
-    list.push_back(nx);
-    list.push_back(ny);
-    list.push_back(nz);
-    list.push_back(u);
-    list.push_back(v);
-    // This should work (hopefully)
-    list.push_back((float)(uint8_t)blockTex);
+// Only in order for the shader to understand which face we want to draw / vertex pull
+enum class FaceDirection : uint8_t {
+    Front = 0,
+    Back,
+    Top,
+    Bottom,
+    Right,
+    Left
+};
+
+void AddVertex(std::vector<int> &list, int x, int y, int z, FaceDirection face, BlockTexture blockTex) {
+    int compressedVertex = (z << 20) | (y << 10) | x;
+    list.push_back(compressedVertex);
+    int compressedData = ((uint8_t)face << 8) | (uint8_t)blockTex;
+    list.push_back(compressedData);
 }
 
-#pragma region Faces Helper Block
-void AddFrontFace(std::vector<float> &v, float x, float y, float z, BlockTexture blockTex) {
-    AddVertex(v, x,   y,   z+1, 0, 0, 1, 0, 1, blockTex);
-    AddVertex(v, x+1, y,   z+1, 0, 0, 1, 1, 1, blockTex);
-    AddVertex(v, x+1, y+1, z+1, 0, 0, 1, 1, 0, blockTex);
-
-    AddVertex(v, x,   y,   z+1, 0, 0, 1, 0, 1, blockTex);
-    AddVertex(v, x+1, y+1, z+1, 0, 0, 1, 1, 0, blockTex);
-    AddVertex(v, x,   y+1, z+1, 0, 0, 1, 0, 0, blockTex);
+void AddFrontFace(std::vector<int> &v, int x, int y, int z, BlockTexture blockTex) {
+    AddVertex(v, x,   y,   z+1, FaceDirection::Front, blockTex);
 }
 
-void AddBackFace(std::vector<float> &v, float x, float y, float z, BlockTexture blockTex) {
-    AddVertex(v, x+1, y,   z,   0, 0, -1, 0, 1, blockTex);
-    AddVertex(v, x,   y,   z,   0, 0, -1, 1, 1, blockTex);
-    AddVertex(v, x,   y+1, z,   0, 0, -1, 1, 0, blockTex);
-
-    AddVertex(v, x+1, y,   z,   0, 0, -1, 0, 1, blockTex);
-    AddVertex(v, x,   y+1, z,   0, 0, -1, 1, 0, blockTex);
-    AddVertex(v, x+1, y+1, z,   0, 0, -1, 0, 0, blockTex);
+void AddBackFace(std::vector<int> &v, int x, int y, int z, BlockTexture blockTex) {
+    AddVertex(v, x+1, y,   z,   FaceDirection::Back, blockTex);
 }
 
-void AddTopFace(std::vector<float> &v, float x, float y, float z, BlockTexture blockTex) {
-    AddVertex(v, x,   y+1, z,   0, 1, 0, 0, 0, blockTex);
-    AddVertex(v, x,   y+1, z+1, 0, 1, 0, 0, 1, blockTex);
-    AddVertex(v, x+1, y+1, z+1, 0, 1, 0, 1, 1, blockTex);
-
-    AddVertex(v, x,   y+1, z,   0, 1, 0, 0, 0, blockTex);
-    AddVertex(v, x+1, y+1, z+1, 0, 1, 0, 1, 1, blockTex);
-    AddVertex(v, x+1, y+1, z,   0, 1, 0, 1, 0, blockTex);
+void AddTopFace(std::vector<int> &v, int x, int y, int z, BlockTexture blockTex) {
+    AddVertex(v, x,   y+1, z,   FaceDirection::Top, blockTex);
 }
 
-void AddBottomFace(std::vector<float> &v, float x, float y, float z, BlockTexture blockTex) {
-    AddVertex(v, x,   y, z,     0, -1, 0, 0, 0, blockTex);
-    AddVertex(v, x+1, y, z+1,   0, -1, 0, 1, 1, blockTex);
-    AddVertex(v, x,   y, z+1,   0, -1, 0, 0, 1, blockTex);
-
-    AddVertex(v, x,   y, z,     0, -1, 0, 0, 0, blockTex);
-    AddVertex(v, x+1, y, z,     0, -1, 0, 1, 0, blockTex);
-    AddVertex(v, x+1, y, z+1,   0, -1, 0, 1, 1, blockTex);
+void AddBottomFace(std::vector<int> &v, int x, int y, int z, BlockTexture blockTex) {
+    AddVertex(v, x,   y, z,     FaceDirection::Bottom, blockTex);
 }
 
-void AddRightFace(std::vector<float> &v, float x, float y, float z, BlockTexture blockTex) {
-    AddVertex(v, x+1, y,   z+1, 1, 0, 0, 0, 1, blockTex);
-    AddVertex(v, x+1, y,   z,   1, 0, 0, 1, 1, blockTex);
-    AddVertex(v, x+1, y+1, z,   1, 0, 0, 1, 0, blockTex);
-
-    AddVertex(v, x+1, y,   z+1, 1, 0, 0, 0, 1, blockTex);
-    AddVertex(v, x+1, y+1, z,   1, 0, 0, 1, 0, blockTex);
-    AddVertex(v, x+1, y+1, z+1, 1, 0, 0, 0, 0, blockTex);
+void AddRightFace(std::vector<int> &v, int x, int y, int z, BlockTexture blockTex) {
+    AddVertex(v, x+1, y,   z+1, FaceDirection::Right, blockTex);
 }
 
-void AddLeftFace(std::vector<float> &v, float x, float y, float z, BlockTexture blockTex) {
-    AddVertex(v, x,   y,   z,   -1, 0, 0, 0, 1, blockTex);
-    AddVertex(v, x,   y,   z+1, -1, 0, 0, 1, 1, blockTex);
-    AddVertex(v, x,   y+1, z+1, -1, 0, 0, 1, 0, blockTex);
-
-    AddVertex(v, x,   y,   z,   -1, 0, 0, 0, 1, blockTex);
-    AddVertex(v, x,   y+1, z+1, -1, 0, 0, 1, 0, blockTex);
-    AddVertex(v, x,   y+1, z,   -1, 0, 0, 0, 0, blockTex);
+void AddLeftFace(std::vector<int> &v, int x, int y, int z, BlockTexture blockTex) {
+    AddVertex(v, x,   y,   z,   FaceDirection::Left, blockTex);
 }
-#pragma endregion
-
-/*
-#pragma region Faces Helper LOD Chunk
-void AddFrontFaceLOD(std::vector<float> &vl, int maxHeight) {
-    float h = maxHeight;
-    float w = MAX_CHUNK_WIDTH * 0.5f;
-    AddVertex(vl, -w, -h,  w,  0, 0, 1,  0.0f, 0.0f, BlockTexture::Grass_Top);
-    AddVertex(vl,  w, -h,  w,  0, 0, 1,  1.0f, 0.0f, BlockTexture::Grass_Top);
-    AddVertex(vl,  w,  h,  w,  0, 0, 1,  1.0f, 1.0f, BlockTexture::Grass_Top);
-    AddVertex(vl, -w, -h,  w,  0, 0, 1,  0.0f, 0.0f, BlockTexture::Grass_Top);
-    AddVertex(vl,  w,  h,  w,  0, 0, 1,  1.0f, 1.0f, BlockTexture::Grass_Top);
-    AddVertex(vl, -w,  h,  w,  0, 0, 1,  0.0f, 1.0f, BlockTexture::Grass_Top);
-}
-
-void AddBackFaceLOD(std::vector<float> &vl, int maxHeight) {
-    float h = maxHeight;
-    float w = MAX_CHUNK_WIDTH * 0.5f;
-    AddVertex(vl,  w, -h, -w,  0, 0,-1,  0.0f, 0.0f, BlockTexture::Grass_Top);
-    AddVertex(vl, -w, -h, -w,  0, 0,-1,  1.0f, 0.0f, BlockTexture::Grass_Top);
-    AddVertex(vl, -w,  h, -w,  0, 0,-1,  1.0f, 1.0f, BlockTexture::Grass_Top);
-    AddVertex(vl,  w, -h, -w,  0, 0,-1,  0.0f, 0.0f, BlockTexture::Grass_Top);
-    AddVertex(vl, -w,  h, -w,  0, 0,-1,  1.0f, 1.0f, BlockTexture::Grass_Top);
-    AddVertex(vl,  w,  h, -w,  0, 0,-1,  0.0f, 1.0f, BlockTexture::Grass_Top);
-}
-
-void AddTopFaceLOD(std::vector<float> &vl, int maxHeight) {
-    float h = maxHeight;
-    float w = MAX_CHUNK_WIDTH * 0.5f;
-    AddVertex(vl, -w,  h,  w,  0, 1, 0,  0.0f, 0.0f, BlockTexture::Grass_Top);
-    AddVertex(vl,  w,  h,  w,  0, 1, 0,  1.0f, 0.0f, BlockTexture::Grass_Top);
-    AddVertex(vl,  w,  h, -w,  0, 1, 0,  1.0f, 1.0f, BlockTexture::Grass_Top);
-    AddVertex(vl, -w,  h,  w,  0, 1, 0,  0.0f, 0.0f, BlockTexture::Grass_Top);
-    AddVertex(vl,  w,  h, -w,  0, 1, 0,  1.0f, 1.0f, BlockTexture::Grass_Top);
-    AddVertex(vl, -w,  h, -w,  0, 1, 0,  0.0f, 1.0f, BlockTexture::Grass_Top);
-}
-
-void AddBottomFaceLOD(std::vector<float> &vl, int maxHeight) {
-    float h = maxHeight;
-    float w = MAX_CHUNK_WIDTH * 0.5f;
-    AddVertex(vl, -w, -h, -w,  0,-1, 0,  0.0f, 0.0f, BlockTexture::Grass_Top);
-    AddVertex(vl,  w, -h, -w,  0,-1, 0,  1.0f, 0.0f, BlockTexture::Grass_Top);
-    AddVertex(vl,  w, -h,  w,  0,-1, 0,  1.0f, 1.0f, BlockTexture::Grass_Top);
-    AddVertex(vl, -w, -h, -w,  0,-1, 0,  0.0f, 0.0f, BlockTexture::Grass_Top);
-    AddVertex(vl,  w, -h,  w,  0,-1, 0,  1.0f, 1.0f, BlockTexture::Grass_Top);
-    AddVertex(vl, -w, -h,  w,  0,-1, 0,  0.0f, 1.0f, BlockTexture::Grass_Top);
-}
-
-void AddRightFaceLOD(std::vector<float> &vl, int maxHeight) {
-    float h = maxHeight;
-    float w = MAX_CHUNK_WIDTH * 0.5f;
-    AddVertex(vl,  w, -h,  w,  1, 0, 0,  0.0f, 0.0f, BlockTexture::Grass_Top);
-    AddVertex(vl,  w, -h, -w,  1, 0, 0,  1.0f, 0.0f, BlockTexture::Grass_Top);
-    AddVertex(vl,  w,  h, -w,  1, 0, 0,  1.0f, 1.0f, BlockTexture::Grass_Top);
-    AddVertex(vl,  w, -h,  w,  1, 0, 0,  0.0f, 0.0f, BlockTexture::Grass_Top);
-    AddVertex(vl,  w,  h, -w,  1, 0, 0,  1.0f, 1.0f, BlockTexture::Grass_Top);
-    AddVertex(vl,  w,  h,  w,  1, 0, 0,  0.0f, 1.0f, BlockTexture::Grass_Top);
-}
-
-void AddLeftFaceLOD(std::vector<float> &vl, int maxHeight) {
-    float h = maxHeight;
-    float w = MAX_CHUNK_WIDTH * 0.5f;
-    AddVertex(vl, -w, -h, -w, -1, 0, 0,  0.0f, 0.0f, BlockTexture::Grass_Top);
-    AddVertex(vl, -w, -h,  w, -1, 0, 0,  1.0f, 0.0f, BlockTexture::Grass_Top);
-    AddVertex(vl, -w,  h,  w, -1, 0, 0,  1.0f, 1.0f, BlockTexture::Grass_Top);
-    AddVertex(vl, -w, -h, -w, -1, 0, 0,  0.0f, 0.0f, BlockTexture::Grass_Top);
-    AddVertex(vl, -w,  h,  w, -1, 0, 0,  1.0f, 1.0f, BlockTexture::Grass_Top);
-    AddVertex(vl, -w,  h, -w, -1, 0, 0,  0.0f, 1.0f, BlockTexture::Grass_Top);
-}
-#pragma endregion
-*/
 
 void Chunk::GenerateTree(int localX, int baseY, int localZ, int height) {
     // Standard-Eichenbaum-Dimensionen
@@ -213,7 +109,8 @@ Chunk::Chunk(const glm::ivec2 &position) : position(position) {
             float height = MIN_PLAINS_HEIGHT;
             float nx = position.x * MAX_CHUNK_WIDTH + x;
             float nz = position.y * MAX_CHUNK_WIDTH + z;
-            float n = noise.GetNoise(nx, nz);
+            float offset = 10'000.0f;
+            float n = noise.GetNoise(nx + offset, nz + offset);
             if (n > 0) {
                 n = powf(n, 2.5f);
             }
@@ -248,10 +145,10 @@ Chunk::Chunk(const glm::ivec2 &position) : position(position) {
 }
 
 Chunk::~Chunk() {
-    GLUtil::DestroyVertexArray(vao);
-    GLUtil::DestroyVertexBuffer(vbo);
     GLUtil::DestroyVertexArray(lvao);
     GLUtil::DestroyVertexBuffer(lvbo);
+    GLUtil::DestroyVertexArray(vao);
+    GLUtil::DestroyVertexBuffer(ssbo);
 }
 
 void Chunk::SetBlock(const glm::ivec3 &position, uint8_t type) {
@@ -272,11 +169,9 @@ uint8_t Chunk::GetBlock(const glm::ivec3 &position) {
 }
 
 void Chunk::RebuildMesh(std::unordered_map<glm::ivec2, std::unique_ptr<Chunk>> &chunks) {
-    std::vector<float> vertices;
-    vertices.reserve(MAX_CHUNK_WIDTH * MAX_CHUNK_WIDTH * maxHeight * 9);
-    // std::vector<float> verticesLOD;
-    // verticesLOD.reserve(MAX_CHUNK_WIDTH * MAX_CHUNK_WIDTH * maxHeight * 9);
-    
+    std::vector<int> vertices;
+    vertices.reserve(MAX_CHUNK_WIDTH * MAX_CHUNK_WIDTH * maxHeight * 5 * 6);
+
     int worldStartX = position.x * MAX_CHUNK_WIDTH;
     int worldStartZ = position.y * MAX_CHUNK_WIDTH;
 
@@ -288,19 +183,27 @@ void Chunk::RebuildMesh(std::unordered_map<glm::ivec2, std::unique_ptr<Chunk>> &
                 int wx = worldStartX + x;
                 int wz = worldStartZ + z;
 
-                auto getBlockGlobal = [&](int worldX, int y, int z) -> int {
-                    if (y < 0 || y >= MAX_CHUNK_HEIGHT) return 0;
+                auto floorDiv = [](int value, int divisor) {
+                    return (int)std::floor((double)value / divisor);
+                };
 
-                    int chunkX = std::floor(worldX / MAX_CHUNK_WIDTH);
-                    int chunkZ = std::floor(z / MAX_CHUNK_WIDTH);
-                    if (chunks.find(glm::ivec2(chunkX, chunkZ)) != chunks.end()) {
-                        std::unique_ptr<Chunk> &c = chunks.at(glm::ivec2(chunkX, chunkZ));
-                        int localX = std::floor(worldX % MAX_CHUNK_WIDTH);
-                        int localZ = std::floor(z % MAX_CHUNK_WIDTH);
-
-                        return c->GetBlock(glm::ivec3(localX, y, localZ));
+                auto getBlockGlobal = [&](int worldX, int y, int worldZ) -> int {
+                    if (y < 0 || y >= MAX_CHUNK_HEIGHT) {
+                        return 0;
                     }
-                    return 0;
+
+                    int chunkX = floorDiv(worldX, MAX_CHUNK_WIDTH);
+                    int chunkZ = floorDiv(worldZ, MAX_CHUNK_WIDTH);
+
+                    auto it = chunks.find(glm::ivec2(chunkX, chunkZ));
+                    if (it == chunks.end()) {
+                        return 0;
+                    }
+
+                    int localX = worldX - chunkX * MAX_CHUNK_WIDTH;
+                    int localZ = worldZ - chunkZ * MAX_CHUNK_WIDTH;
+
+                    return it->second->GetBlock(glm::ivec3(localX, y, localZ));
                 };
 
                 if (blocks[x][y][z] == (uint8_t)BlockType::Air) continue;
@@ -314,49 +217,20 @@ void Chunk::RebuildMesh(std::unordered_map<glm::ivec2, std::unique_ptr<Chunk>> &
         }
     }
 
-    vertexCount = vertices.size() / 9;
+    vertexCount = vertices.size() / 2;
     if (vertexCount == 0) return;
 
     vertexBuffer.reserve(vertices.size());
-    for (float v : vertices) {
+    for (auto v : vertices) {
         vertexBuffer.push_back(v);
     }
-
-    // vertexCountLOD = verticesLOD.size() / 9;
-    // if (vertexCountLOD == 0) return;
-
-    // vertexBufferLOD.reserve(verticesLOD.size());
-    // for (float v : verticesLOD) {
-    //     vertexBufferLOD.push_back(v);
-    // }
 }
 
 void Chunk::UploadData() {
-    GLUtil::DestroyVertexArray(vao);
-    GLUtil::DestroyVertexBuffer(vbo);
     GLUtil::DestroyVertexArray(lvao);
     GLUtil::DestroyVertexBuffer(lvbo);
-
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * vertexBuffer.size(), vertexBuffer.data(), GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 9, NULL);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 9, (void *)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 9, (void *)(6 * sizeof(float)));
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(float) * 9, (void *)(8 * sizeof(float)));
-    glEnableVertexAttribArray(3);
-
-    glBindVertexArray(0);
-
-    vertexBuffer.clear();
-    std::vector<float>().swap(vertexBuffer);
+    GLUtil::DestroyVertexArray(vao);
+    GLUtil::DestroyVertexBuffer(ssbo);
 
     // LOD Chunk
     glGenVertexArrays(1, &lvao);
@@ -417,7 +291,6 @@ void Chunk::UploadData() {
 
     glGenBuffers(1, &lvbo);
     glBindBuffer(GL_ARRAY_BUFFER, lvbo);
-    // glBufferData(GL_ARRAY_BUFFER, sizeof(float) * vertexBufferLOD.size(), vertexBufferLOD.data(), GL_STATIC_DRAW);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 9, NULL);
@@ -431,8 +304,12 @@ void Chunk::UploadData() {
 
     glBindVertexArray(0);
 
-    // vertexBufferLOD.clear();
-    // std::vector<float>().swap(vertexBufferLOD);
+    // Vertex pulling
+    glCreateBuffers(1, &ssbo);
+    glCreateVertexArrays(1, &vao);
+    glNamedBufferData(ssbo, vertexCount * sizeof(int) * 2, vertexBuffer.data(), GL_STATIC_DRAW);
+    vertexBuffer.clear();
+    std::vector<int>().swap(vertexBuffer);
 }
 
 void Chunk::Render(const Shader &shader, const glm::vec3 &playerPos, float distForLOD) {
@@ -448,13 +325,15 @@ void Chunk::Render(const Shader &shader, const glm::vec3 &playerPos, float distF
                                   );
     if (glm::distance(chunkPos, playerPos) <= distForLOD) {
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, vertexCount);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo);
+        glDrawArrays(GL_TRIANGLES, 0, vertexCount * 6);
     } else {
+        /*
         shader.SetInt("lod", 1);
         glBindVertexArray(lvao);
-        // glDrawArrays(GL_TRIANGLES, 0, vertexCountLOD);
         glDrawArrays(GL_TRIANGLES, 0, 36);
         shader.SetInt("lod", 0);
+        */
     }
     glBindVertexArray(0);
 

@@ -1,4 +1,4 @@
-#version 330 core
+#version 450 core
 out vec4 fragColor;
 
 in vec2 texCoords;
@@ -20,7 +20,6 @@ uniform vec3 viewPos;
 uniform int lod;
 uniform DirectionalLight directionalLight;
 
-// vec4 grassColor = vec4(90.0 / 255.0, 255 / 255.0, 110.0 / 255.0, 1.0);
 vec4 grassColor = vec4(51.0 / 255.0, 171.0 / 255.0, 65.0 / 255.0, 1.0);
 vec4 leavesColor = vec4(20.0 / 255.0, 156.0 / 255.0, 45.0 / 255.0, 1.0);
 

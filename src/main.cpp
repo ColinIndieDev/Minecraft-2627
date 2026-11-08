@@ -22,7 +22,7 @@
 
 #define THREADS 12
 
-#define DISTANCE_FOR_LOD_CHUNK 1000
+#define DISTANCE_FOR_LOD_CHUNK 250 /* 1000 = almost 64 chunks */
 
 glm::mat4 perspective;
 Camera3D camera(glm::vec3(30, 90, 30), 45.0f, 0.1f);
@@ -113,7 +113,8 @@ int main(void) {
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
 
-    Shader s("shader_resources/shader.vert", "shader_resources/shader.frag");
+    // Shader s("shader_resources/shader.vert", "shader_resources/shader.frag");
+    Shader vertexPullShader("shader_resources/shaderPull.vert", "shader_resources/shader.frag");
     Shader cs("cubemapShader.vert", "cubemapShader.frag");
     perspective = glm::perspective(glm::radians(camera.fov), (float)window.screenWidth / window.screenHeight, ZNEAR, ZFAR);
 
@@ -136,8 +137,8 @@ int main(void) {
     }
 
     pthread_mutex_lock(&mutex);
-    for (int x = 0; x < 150; ++x) {
-        for (int z = 0; z < 150; ++z) {
+    for (int x = -64; x < 64; ++x) {
+        for (int z = -64; z < 64; ++z) {
             chunks.emplace(glm::ivec2(x, z), std::make_unique<Chunk>(glm::ivec2(x, z)));
             auto &chunk = chunks.at(glm::ivec2(x, z));
             chunksToBuild.push(chunk.get());
@@ -181,17 +182,17 @@ int main(void) {
             camera.pos.y += speed;
         }
 
-        s.Use();
-        s.SetVector3("viewPos", camera.pos);
-        s.SetVector3("directionalLight.direction", glm::vec3(-0.2f, -1.0f, -0.3f));
-        s.SetVector3("directionalLight.ambient", glm::vec3(0.5f));
-        s.SetVector3("directionalLight.diffuse", glm::vec3(0.7f));
-        s.SetVector3("directionalLight.specular", glm::vec3(0.1f));
-        s.SetMatrix4("projection", perspective);
-        s.SetMatrix4("view", camera.GetViewMatrix());
+        vertexPullShader.Use();
+        vertexPullShader.SetVector3("viewPos", camera.pos);
+        vertexPullShader.SetVector3("directionalLight.direction", glm::vec3(-0.2f, -1.0f, -0.3f));
+        vertexPullShader.SetVector3("directionalLight.ambient", glm::vec3(0.5f));
+        vertexPullShader.SetVector3("directionalLight.diffuse", glm::vec3(0.7f));
+        vertexPullShader.SetVector3("directionalLight.specular", glm::vec3(0.5f));
+        vertexPullShader.SetMatrix4("projection", perspective);
+        vertexPullShader.SetMatrix4("view", camera.GetViewMatrix());
 
-        s.SetInt("tex", 0);
-        s.SetInt("lod", 0);
+        vertexPullShader.SetInt("tex", 0);
+        vertexPullShader.SetInt("lod", 0);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D_ARRAY, textureArray);
 
@@ -203,7 +204,7 @@ int main(void) {
                                           (chunk->position.y * MAX_CHUNK_WIDTH) + (MAX_CHUNK_WIDTH * 0.5f)
                                       ),
                                       glm::vec3(MAX_CHUNK_WIDTH, chunk->maxHeight, MAX_CHUNK_WIDTH))) {
-                chunk->Render(s, camera.pos, DISTANCE_FOR_LOD_CHUNK);
+                chunk->Render(vertexPullShader, camera.pos, DISTANCE_FOR_LOD_CHUNK);
             }
         }
 

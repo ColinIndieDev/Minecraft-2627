@@ -19,17 +19,15 @@ enum class ChunkGenState : uint8_t {
 #define MAX_CHUNK_HEIGHT 256
 
 #define MIN_PLAINS_HEIGHT 50
-#define MAX_PLAINS_HEIGHT 100
+#define MAX_PLAINS_HEIGHT 200
 
 struct Chunk {
     ChunkGenState genState = ChunkGenState::None;     
-    std::vector<float> vertexBuffer;
-    // std::vector<float> vertexBufferLOD;
+    std::vector<int> vertexBuffer;
     uint8_t blocks[MAX_CHUNK_WIDTH][MAX_CHUNK_HEIGHT][MAX_CHUNK_WIDTH] = {0};
-    uint32_t vao = 0, vbo = 0;
     uint32_t lvao = 0, lvbo = 0;
+    uint32_t vao = 0, ssbo = 0;
     size_t vertexCount = 0;
-    // size_t vertexCountLOD = 0;
     int maxHeight = 0;
     glm::ivec2 position = glm::ivec2(0);
 
