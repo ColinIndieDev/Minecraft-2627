@@ -51,31 +51,26 @@ void AddLeftFace(std::vector<int> &v, int x, int y, int z, BlockTexture blockTex
 }
 
 void Chunk::GenerateTree(int localX, int baseY, int localZ, int height) {
-    // Standard-Eichenbaum-Dimensionen
-    int trunkHeight = height; // z.B. 4 bis 6 Blöcke hoch
+    int trunkHeight = height;
     int leavesStart = baseY + trunkHeight - 2;
     int leavesTop = baseY + trunkHeight + 2;
 
-    // 1. Stamm generieren
     for (int y = baseY; y < baseY + trunkHeight; ++y) {
         if (y < MAX_CHUNK_HEIGHT) {
             blocks[localX][y][localZ] = (uint8_t)BlockType::Oak_Log;
         }
     }
 
-    // 2. Blätter-Krone generieren (Schichten-basiert wie in Minecraft)
     for (int y = leavesStart; y <= leavesTop; ++y) {
         if (y < 0 || y >= MAX_CHUNK_HEIGHT) continue;
 
         int radius = 2;
-        // Ganz oben wird die Krone etwas schmaler
         if (y == leavesTop || y == leavesStart) {
             radius = 1;
         }
 
         for (int x = -radius; x <= radius; ++x) {
             for (int z = -radius; z <= radius; ++z) {
-                // Ecken der Blätter abrunden (optional, sieht natürlicher aus)
                 if (radius == 2 && abs(x) == 2 && abs(z) == 2 && (y == leavesTop - 1 || y == leavesStart + 1)) {
                     continue;
                 }
@@ -83,11 +78,9 @@ void Chunk::GenerateTree(int localX, int baseY, int localZ, int height) {
                 int targetX = localX + x;
                 int targetZ = localZ + z;
 
-                // Prüfen, ob sich der Block innerhalb des Chunks befindet
                 if (targetX >= 0 && targetX < MAX_CHUNK_WIDTH &&
                     targetZ >= 0 && targetZ < MAX_CHUNK_WIDTH) {
 
-                    // Nur Blätter setzen, wenn dort nicht schon ein Stamm ist
                     if (blocks[targetX][y][targetZ] == (uint8_t)BlockType::Air ||
                         blocks[targetX][y][targetZ] == 0) {
                         blocks[targetX][y][targetZ] = (uint8_t)BlockType::Oak_Leaves;
@@ -128,20 +121,11 @@ Chunk::Chunk(const glm::ivec2 &position) : position(position) {
                     SetBlock(glm::ivec3(x, y, z), (uint8_t)BlockType::Stone);
                 }
             }
+            if (rand() % 10 == 0) {
+                GenerateTree(x, z, height, 3 + rand() % 4);
+            }
         }
     }
-
-    // Example: Create a tree at 8, 8 with height of 5
-    int treeX = 8;
-    int treeZ = 8;
-    int surfaceY = 0;
-    for (int y = MAX_CHUNK_HEIGHT - 1; y >= 0; --y) {
-        if (blocks[treeX][y][treeZ] != 0) {
-            surfaceY = y + 1;
-            break;
-        }
-    }
-    GenerateTree(treeX, surfaceY, treeZ, 5);
 }
 
 Chunk::~Chunk() {

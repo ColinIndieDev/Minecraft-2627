@@ -104,7 +104,7 @@ int main(void) {
         .cursorPosCallback = CursorPosCallback
     };
 
-    window.Init(800, 500, "Hello OpenGL!");
+    window.Init(800, 500, "Hello OpenGL!", true);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -115,7 +115,7 @@ int main(void) {
 
     // Shader s("shader_resources/shader.vert", "shader_resources/shader.frag");
     Shader vertexPullShader("shader_resources/shaderPull.vert", "shader_resources/shader.frag");
-    Shader cs("cubemapShader.vert", "cubemapShader.frag");
+    Shader cs("shader_resources/cubemapShader.vert", "shader_resources/cubemapShader.frag");
     perspective = glm::perspective(glm::radians(camera.fov), (float)window.screenWidth / window.screenHeight, ZNEAR, ZFAR);
 
     std::string paths[6] = {
