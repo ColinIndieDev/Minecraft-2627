@@ -13,6 +13,8 @@ enum class BlockTexture : uint8_t {
     Oak_Log,
     Oak_Log_Top,
     Oak_Leaves,
+    Sand,
+    Water,
 };
 
 inline uint32_t GetTextureArray() {
@@ -25,6 +27,8 @@ inline uint32_t GetTextureArray() {
             "block/oak_log.png",
             "block/oak_log_top.png",
             "block/oak_leaves.png",
+            "block/sand.png",
+            "block/water_overlay.png"
         }, 
         .filter = GL_NEAREST,
     });
@@ -82,5 +86,23 @@ inline BlockFaces blockTypeToBlockFace[(int)BlockType::Size] = {
         .back   = BlockTexture::Oak_Leaves,
         .left   = BlockTexture::Oak_Leaves,
         .right  = BlockTexture::Oak_Leaves
+    },
+    // Sand
+    {
+        .top    = BlockTexture::Sand,
+        .bottom = BlockTexture::Sand,
+        .front  = BlockTexture::Sand,
+        .back   = BlockTexture::Sand,
+        .left   = BlockTexture::Sand,
+        .right  = BlockTexture::Sand
+    },
+    // Water
+    {
+        .top    = BlockTexture::Water,
+        .bottom = BlockTexture::Water,
+        .front  = BlockTexture::Water,
+        .back   = BlockTexture::Water,
+        .left   = BlockTexture::Water,
+        .right  = BlockTexture::Water
     },
 };

@@ -2,6 +2,7 @@
 #include <string>
 #include <memory>
 #include <queue>
+#include <algorithm>
 #include <unistd.h>
 #include <pthread.h>
 
@@ -22,7 +23,8 @@
 
 #define THREADS 12
 
-#define DISTANCE_FOR_LOD_CHUNK 250 /* 1000 = almost 64 chunks */
+#define DISTANCE_FOR_LOD_CHUNK 1'000'000 /* 1000 = almost 64 chunks */
+#define VIEW_DISTANCE 16
 
 glm::mat4 perspective;
 Camera3D camera(glm::vec3(30, 90, 30), 45.0f, 0.1f);
@@ -64,19 +66,36 @@ void CursorPosCallback(GLFWwindow *window, double xPosIn, double yPosIn) {
 }
 #pragma endregion
 
+auto cmpNearestChunk = [](const auto& a, const auto& b) {
+    glm::vec3 chunkPosA = glm::vec3((a->position.x * MAX_CHUNK_WIDTH) + (MAX_CHUNK_WIDTH * 0.5f),
+                                    MAX_CHUNK_HEIGHT * 0.5f,
+                                   (a->position.y * MAX_CHUNK_WIDTH) + (MAX_CHUNK_WIDTH * 0.5f)
+                                  );
+    glm::vec3 chunkPosB = glm::vec3((b->position.x * MAX_CHUNK_WIDTH) + (MAX_CHUNK_WIDTH * 0.5f),
+                                    MAX_CHUNK_HEIGHT * 0.5f,
+                                   (b->position.y * MAX_CHUNK_WIDTH) + (MAX_CHUNK_WIDTH * 0.5f)
+                                  );
+    int da = (chunkPosA.x - camera.pos.x) * (chunkPosA.x - camera.pos.x)
+           + (chunkPosA.z - camera.pos.z) * (chunkPosA.z - camera.pos.z);
+    int db = (chunkPosB.x - camera.pos.x) * (chunkPosB.x - camera.pos.x)
+           + (chunkPosB.z - camera.pos.z) * (chunkPosB.z - camera.pos.z);
+    return da > db;
+};
+
 std::unordered_map<glm::ivec2, std::unique_ptr<Chunk>> chunks;
 
 pthread_t threads[THREADS];
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
-std::queue<Chunk *> chunksToBuild;
+std::priority_queue<Chunk *, std::vector<Chunk *>, decltype(cmpNearestChunk)> chunksToBuild(cmpNearestChunk);
 std::queue<Chunk *> chunksToLoad;
 bool running = true;
+glm::ivec2 lastPlayerChunkPos = glm::ivec2(0);
 
 void *worker_loop(void *args) {
     while (running) {
         pthread_mutex_lock(&mutex);
-        if (chunksToBuild.empty() && running) {
+        while (chunksToBuild.empty() && running) {
             pthread_cond_wait(&cond, &mutex);
             // usleep(1000);
             // continue;
@@ -85,7 +104,7 @@ void *worker_loop(void *args) {
             pthread_mutex_unlock(&mutex);
             break;
         }
-        Chunk *chunk = chunksToBuild.front();
+        Chunk *chunk = chunksToBuild.top();
         chunksToBuild.pop();
         pthread_mutex_unlock(&mutex);
 
@@ -98,7 +117,13 @@ void *worker_loop(void *args) {
     return NULL;
 }
 
+glm::vec2 GetPlayerChunkPos() {
+    return glm::ivec2(camera.pos.x / MAX_CHUNK_WIDTH,
+                      camera.pos.z / MAX_CHUNK_WIDTH);
+}
+
 int main(void) {
+    srand(time(NULL));
     Window window = {
         .framebufferSizeCallback = FramebufferSizeCallback,
         .cursorPosCallback = CursorPosCallback
@@ -113,7 +138,6 @@ int main(void) {
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
 
-    // Shader s("shader_resources/shader.vert", "shader_resources/shader.frag");
     Shader vertexPullShader("shader_resources/shaderPull.vert", "shader_resources/shader.frag");
     Shader cs("shader_resources/cubemapShader.vert", "shader_resources/cubemapShader.frag");
     perspective = glm::perspective(glm::radians(camera.fov), (float)window.screenWidth / window.screenHeight, ZNEAR, ZFAR);
@@ -136,9 +160,10 @@ int main(void) {
         pthread_create(&threads[i], NULL, worker_loop, NULL);
     }
 
+    /*
     pthread_mutex_lock(&mutex);
-    for (int x = -64; x < 64; ++x) {
-        for (int z = -64; z < 64; ++z) {
+    for (int x = -VIEW_DISTANCE; x < VIEW_DISTANCE; ++x) {
+        for (int z = -VIEW_DISTANCE; z < VIEW_DISTANCE; ++z) {
             chunks.emplace(glm::ivec2(x, z), std::make_unique<Chunk>(glm::ivec2(x, z)));
             auto &chunk = chunks.at(glm::ivec2(x, z));
             chunksToBuild.push(chunk.get());
@@ -146,6 +171,7 @@ int main(void) {
     }
     pthread_cond_broadcast(&cond);
     pthread_mutex_unlock(&mutex);
+    */
 
     while (!window.ShouldClose()) {
         pthread_mutex_lock(&mutex);
@@ -157,6 +183,25 @@ int main(void) {
             chunksToLoad.pop();
         }
         pthread_mutex_unlock(&mutex);
+
+        glm::ivec2 playerChunkPos = GetPlayerChunkPos();
+        if (playerChunkPos != lastPlayerChunkPos) {
+            pthread_mutex_lock(&mutex);
+            for (int x = playerChunkPos.x - VIEW_DISTANCE; x < playerChunkPos.x + VIEW_DISTANCE; ++x) {
+                for (int z = playerChunkPos.y - VIEW_DISTANCE; z < playerChunkPos.y + VIEW_DISTANCE; ++z) {
+                    glm::ivec2 newChunkPos(x, z);
+                    if (chunks.find(newChunkPos) == chunks.end()) {
+                        chunks.emplace(newChunkPos, std::make_unique<Chunk>(newChunkPos));
+                        auto &chunk = chunks.at(newChunkPos);
+                        chunksToBuild.push(chunk.get());
+                    }
+                }
+            }
+            pthread_cond_signal(&cond);
+            pthread_mutex_unlock(&mutex);
+
+            lastPlayerChunkPos = playerChunkPos;
+        }
 
         window.Update();
         frustum.Update(perspective * camera.GetViewMatrix());
@@ -186,8 +231,8 @@ int main(void) {
         vertexPullShader.SetVector3("viewPos", camera.pos);
         vertexPullShader.SetVector3("directionalLight.direction", glm::vec3(-0.2f, -1.0f, -0.3f));
         vertexPullShader.SetVector3("directionalLight.ambient", glm::vec3(0.5f));
-        vertexPullShader.SetVector3("directionalLight.diffuse", glm::vec3(0.7f));
-        vertexPullShader.SetVector3("directionalLight.specular", glm::vec3(0.5f));
+        vertexPullShader.SetVector3("directionalLight.diffuse", glm::vec3(0.9f));
+        vertexPullShader.SetVector3("directionalLight.specular", glm::vec3(0.1f));
         vertexPullShader.SetMatrix4("projection", perspective);
         vertexPullShader.SetMatrix4("view", camera.GetViewMatrix());
 
@@ -196,16 +241,37 @@ int main(void) {
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D_ARRAY, textureArray);
 
-        for (auto &[pos, chunk] : chunks) {
-            if (chunk->genState == ChunkGenState::Done && 
-                frustum.IsCubeVisible(glm::vec3(
-                                          (chunk->position.x * MAX_CHUNK_WIDTH) + (MAX_CHUNK_WIDTH * 0.5f),
-                                           chunk->maxHeight * 0.5f,
-                                          (chunk->position.y * MAX_CHUNK_WIDTH) + (MAX_CHUNK_WIDTH * 0.5f)
-                                      ),
-                                      glm::vec3(MAX_CHUNK_WIDTH, chunk->maxHeight, MAX_CHUNK_WIDTH))) {
-                chunk->Render(vertexPullShader, camera.pos, DISTANCE_FOR_LOD_CHUNK);
-            }
+        std::vector<std::pair<const glm::ivec2, std::unique_ptr<Chunk>>*> chunksSorted;
+        chunksSorted.reserve(chunks.size());
+        for (auto &c : chunks) {
+            chunksSorted.push_back(&c);
+        }
+        std::sort(chunksSorted.begin(), chunksSorted.end(), [&](auto &a, auto &b) {
+            return glm::distance(camera.pos, glm::vec3(a->first.x, 0, a->first.y)) < glm::distance(camera.pos, glm::vec3(b->first.x, 0, b->first.y));
+        });
+        chunksSorted.erase(
+            std::remove_if(chunksSorted.begin(), chunksSorted.end(), [&](auto &chunk) {
+                return !frustum.IsCubeVisible(glm::vec3(
+                                          (chunk->second->position.x * MAX_CHUNK_WIDTH) + (MAX_CHUNK_WIDTH * 0.5f),
+                                           chunk->second->maxHeight * 0.5f,
+                                          (chunk->second->position.y * MAX_CHUNK_WIDTH) + (MAX_CHUNK_WIDTH * 0.5f)
+                                      ), glm::vec3(MAX_CHUNK_WIDTH, chunk->second->maxHeight, MAX_CHUNK_WIDTH)) || chunk->second->genState != ChunkGenState::Done;
+            }),
+            chunksSorted.end()
+        );
+
+        for (auto &c : chunksSorted) {
+            std::unique_ptr<Chunk> &chunk = c->second;
+            const glm::ivec2 &pos = c->first;
+            chunk->Render(vertexPullShader, camera.pos, DISTANCE_FOR_LOD_CHUNK);
+        }
+
+        // For water (it also affects leaves but idfc)
+        vertexPullShader.SetVector3("directionalLight.specular", glm::vec3(0.8f));
+        for (auto &c : chunksSorted) {
+            std::unique_ptr<Chunk> &chunk = c->second;
+            const glm::ivec2 &pos = c->first;
+            chunk->RenderTransparent(vertexPullShader, camera.pos, DISTANCE_FOR_LOD_CHUNK);
         }
 
         glBindTexture(GL_TEXTURE_2D_ARRAY, 0);

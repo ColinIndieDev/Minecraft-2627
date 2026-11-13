@@ -50,14 +50,16 @@ void AddLeftFace(std::vector<int> &v, int x, int y, int z, BlockTexture blockTex
     AddVertex(v, x,   y,   z,   FaceDirection::Left, blockTex);
 }
 
-void Chunk::GenerateTree(int localX, int baseY, int localZ, int height) {
+void Chunk::GenerateTree(int localX, int baseY, int localZ, int height, int &maxHeight) {
     int trunkHeight = height;
     int leavesStart = baseY + trunkHeight - 2;
     int leavesTop = baseY + trunkHeight + 2;
 
+    if (leavesTop > maxHeight) maxHeight = leavesTop;
+
     for (int y = baseY; y < baseY + trunkHeight; ++y) {
         if (y < MAX_CHUNK_HEIGHT) {
-            blocks[localX][y][localZ] = (uint8_t)BlockType::Oak_Log;
+            SetBlock(glm::ivec3(localX, y, localZ), (uint8_t)BlockType::Oak_Log);
         }
     }
 
@@ -83,7 +85,7 @@ void Chunk::GenerateTree(int localX, int baseY, int localZ, int height) {
 
                     if (blocks[targetX][y][targetZ] == (uint8_t)BlockType::Air ||
                         blocks[targetX][y][targetZ] == 0) {
-                        blocks[targetX][y][targetZ] = (uint8_t)BlockType::Oak_Leaves;
+                        SetBlock(glm::ivec3(targetX, y, targetZ), (uint8_t)BlockType::Oak_Leaves);
                     }
                 }
             }
@@ -113,7 +115,9 @@ Chunk::Chunk(const glm::ivec2 &position) : position(position) {
                 maxHeight = (int)height;
             }
             for (int y = 0; y < (int)height; ++y) {
-                if (y >= height - 2) {
+                if (y > height - 13 && y <= SEA_LEVEL) {
+                    SetBlock(glm::ivec3(x, y, z), (uint8_t)BlockType::Sand);
+                } else if (y >= height - 2) {
                     SetBlock(glm::ivec3(x, y, z), (uint8_t)BlockType::Grass_Block);
                 } else if (y > height - 6) {
                     SetBlock(glm::ivec3(x, y, z), (uint8_t)BlockType::Dirt);
@@ -121,8 +125,16 @@ Chunk::Chunk(const glm::ivec2 &position) : position(position) {
                     SetBlock(glm::ivec3(x, y, z), (uint8_t)BlockType::Stone);
                 }
             }
-            if (rand() % 10 == 0) {
-                GenerateTree(x, z, height, 3 + rand() % 4);
+            for (int waterY = SEA_LEVEL; waterY >= height - 1; waterY--) {
+                if (GetBlock(glm::ivec3(x, waterY, z)) == 0) {
+                    SetBlock(glm::ivec3(x, waterY, z), (uint8_t)BlockType::Water);
+                    if (waterY > maxHeight) {
+                        maxHeight = waterY;
+                    }
+                }
+            }
+            if (rand() % 50 == 0 && height > SEA_LEVEL) {
+                GenerateTree(x, height, z, 3 + rand() % 4, maxHeight);
             }
         }
     }
@@ -133,6 +145,8 @@ Chunk::~Chunk() {
     GLUtil::DestroyVertexBuffer(lvbo);
     GLUtil::DestroyVertexArray(vao);
     GLUtil::DestroyVertexBuffer(ssbo);
+    GLUtil::DestroyVertexArray(tvao);
+    GLUtil::DestroyVertexBuffer(tssbo);
 }
 
 void Chunk::SetBlock(const glm::ivec3 &position, uint8_t type) {
@@ -155,6 +169,8 @@ uint8_t Chunk::GetBlock(const glm::ivec3 &position) {
 void Chunk::RebuildMesh(std::unordered_map<glm::ivec2, std::unique_ptr<Chunk>> &chunks) {
     std::vector<int> vertices;
     vertices.reserve(MAX_CHUNK_WIDTH * MAX_CHUNK_WIDTH * maxHeight * 5 * 6);
+    std::vector<int> verticesTransparent;
+    verticesTransparent.reserve(MAX_CHUNK_WIDTH * MAX_CHUNK_WIDTH * maxHeight * 5 * 6);
 
     int worldStartX = position.x * MAX_CHUNK_WIDTH;
     int worldStartZ = position.y * MAX_CHUNK_WIDTH;
@@ -187,26 +203,61 @@ void Chunk::RebuildMesh(std::unordered_map<glm::ivec2, std::unique_ptr<Chunk>> &
                     int localX = worldX - chunkX * MAX_CHUNK_WIDTH;
                     int localZ = worldZ - chunkZ * MAX_CHUNK_WIDTH;
 
+                    return !BlockIsTransparent((BlockType)it->second->GetBlock(glm::ivec3(localX, y, localZ))) && it->second->GetBlock(glm::ivec3(localX, y, localZ)) != 0;
+                };
+
+                auto getBlockGlobalTransparent = [&](int worldX, int y, int worldZ) -> int {
+                    if (y < 0 || y >= MAX_CHUNK_HEIGHT) {
+                        return 0;
+                    }
+
+                    int chunkX = floorDiv(worldX, MAX_CHUNK_WIDTH);
+                    int chunkZ = floorDiv(worldZ, MAX_CHUNK_WIDTH);
+
+                    auto it = chunks.find(glm::ivec2(chunkX, chunkZ));
+                    if (it == chunks.end()) {
+                        return 0;
+                    }
+
+                    int localX = worldX - chunkX * MAX_CHUNK_WIDTH;
+                    int localZ = worldZ - chunkZ * MAX_CHUNK_WIDTH;
+
                     return it->second->GetBlock(glm::ivec3(localX, y, localZ));
                 };
 
-                if (blocks[x][y][z] == (uint8_t)BlockType::Air) continue;
-                if (getBlockGlobal(wx, y + 1, wz) == 0) AddTopFace   (vertices, x, y, z, blockTypeToBlockFace[blocks[x][y][z]].top);
-                if (getBlockGlobal(wx, y - 1, wz) == 0) AddBottomFace(vertices, x, y, z, blockTypeToBlockFace[blocks[x][y][z]].bottom);
-                if (getBlockGlobal(wx, y, wz + 1) == 0) AddFrontFace (vertices, x, y, z, blockTypeToBlockFace[blocks[x][y][z]].front);
-                if (getBlockGlobal(wx, y, wz - 1) == 0) AddBackFace  (vertices, x, y, z, blockTypeToBlockFace[blocks[x][y][z]].back);
-                if (getBlockGlobal(wx + 1, y, wz) == 0) AddRightFace (vertices, x, y, z, blockTypeToBlockFace[blocks[x][y][z]].right);
-                if (getBlockGlobal(wx - 1, y, wz) == 0) AddLeftFace  (vertices, x, y, z, blockTypeToBlockFace[blocks[x][y][z]].left);
+                if (BlockIsTransparent((BlockType)blocks[x][y][z])) {
+                    if (!getBlockGlobalTransparent(wx, y + 1, wz)) AddTopFace   (verticesTransparent, x, y, z, blockTypeToBlockFace[blocks[x][y][z]].top);
+                    if (!getBlockGlobalTransparent(wx, y - 1, wz)) AddBottomFace(verticesTransparent, x, y, z, blockTypeToBlockFace[blocks[x][y][z]].bottom);
+                    if (!getBlockGlobalTransparent(wx, y, wz + 1)) AddFrontFace (verticesTransparent, x, y, z, blockTypeToBlockFace[blocks[x][y][z]].front);
+                    if (!getBlockGlobalTransparent(wx, y, wz - 1)) AddBackFace  (verticesTransparent, x, y, z, blockTypeToBlockFace[blocks[x][y][z]].back);
+                    if (!getBlockGlobalTransparent(wx + 1, y, wz)) AddRightFace (verticesTransparent, x, y, z, blockTypeToBlockFace[blocks[x][y][z]].right);
+                    if (!getBlockGlobalTransparent(wx - 1, y, wz)) AddLeftFace  (verticesTransparent, x, y, z, blockTypeToBlockFace[blocks[x][y][z]].left);
+                } else {
+                    if (!getBlockGlobal(wx, y + 1, wz)) AddTopFace   (vertices, x, y, z, blockTypeToBlockFace[blocks[x][y][z]].top);
+                    if (!getBlockGlobal(wx, y - 1, wz)) AddBottomFace(vertices, x, y, z, blockTypeToBlockFace[blocks[x][y][z]].bottom);
+                    if (!getBlockGlobal(wx, y, wz + 1)) AddFrontFace (vertices, x, y, z, blockTypeToBlockFace[blocks[x][y][z]].front);
+                    if (!getBlockGlobal(wx, y, wz - 1)) AddBackFace  (vertices, x, y, z, blockTypeToBlockFace[blocks[x][y][z]].back);
+                    if (!getBlockGlobal(wx + 1, y, wz)) AddRightFace (vertices, x, y, z, blockTypeToBlockFace[blocks[x][y][z]].right);
+                    if (!getBlockGlobal(wx - 1, y, wz)) AddLeftFace  (vertices, x, y, z, blockTypeToBlockFace[blocks[x][y][z]].left);
+                }
             }
         }
     }
 
     vertexCount = vertices.size() / 2;
-    if (vertexCount == 0) return;
+    if (vertexCount > 0) {
+        vertexBuffer.reserve(vertices.size());
+        for (auto v : vertices) {
+            vertexBuffer.push_back(v);
+        }
+    }
 
-    vertexBuffer.reserve(vertices.size());
-    for (auto v : vertices) {
-        vertexBuffer.push_back(v);
+    vertexCountTransparent = verticesTransparent.size() / 2;
+    if (vertexCountTransparent == 0) return;
+
+    vertexBufferTransparent.reserve(verticesTransparent.size());
+    for (auto v : verticesTransparent) {
+        vertexBufferTransparent.push_back(v);
     }
 }
 
@@ -215,6 +266,8 @@ void Chunk::UploadData() {
     GLUtil::DestroyVertexBuffer(lvbo);
     GLUtil::DestroyVertexArray(vao);
     GLUtil::DestroyVertexBuffer(ssbo);
+    GLUtil::DestroyVertexArray(tvao);
+    GLUtil::DestroyVertexBuffer(tssbo);
 
     // LOD Chunk
     glGenVertexArrays(1, &lvao);
@@ -288,12 +341,19 @@ void Chunk::UploadData() {
 
     glBindVertexArray(0);
 
-    // Vertex pulling
+    // Vertex pulling (normal)
     glCreateBuffers(1, &ssbo);
     glCreateVertexArrays(1, &vao);
-    glNamedBufferData(ssbo, vertexCount * sizeof(int) * 2, vertexBuffer.data(), GL_STATIC_DRAW);
+    glNamedBufferData(ssbo, vertexCount * sizeof(int) * 2, vertexBuffer.data(), GL_DYNAMIC_COPY);
     vertexBuffer.clear();
     std::vector<int>().swap(vertexBuffer);
+
+    // Vertex pulling (transparent)
+    glCreateBuffers(1, &tssbo);
+    glCreateVertexArrays(1, &tvao);
+    glNamedBufferData(tssbo, vertexCountTransparent * sizeof(int) * 2, vertexBufferTransparent.data(), GL_DYNAMIC_COPY);
+    vertexBufferTransparent.clear();
+    std::vector<int>().swap(vertexBufferTransparent);
 }
 
 void Chunk::Render(const Shader &shader, const glm::vec3 &playerPos, float distForLOD) {
@@ -304,7 +364,7 @@ void Chunk::Render(const Shader &shader, const glm::vec3 &playerPos, float distF
     shader.SetMatrix4("transform", transform);
 
     glm::vec3 chunkPos = glm::vec3((position.x * MAX_CHUNK_WIDTH) + (MAX_CHUNK_WIDTH * 0.5f),
-                                    maxHeight * 0.5f,
+                                    MAX_CHUNK_HEIGHT * 0.5f,
                                    (position.y * MAX_CHUNK_WIDTH) + (MAX_CHUNK_WIDTH * 0.5f)
                                   );
     if (glm::distance(chunkPos, playerPos) <= distForLOD) {
@@ -321,4 +381,24 @@ void Chunk::Render(const Shader &shader, const glm::vec3 &playerPos, float distF
     }
     glBindVertexArray(0);
 
+}
+
+void Chunk::RenderTransparent(const Shader &shader, const glm::vec3 &playerPos, float distForLOD) {
+    if (vertexCountTransparent == 0) return;
+
+    glm::mat4 transform(1);
+    transform = glm::translate(transform, glm::vec3(position.x * MAX_CHUNK_WIDTH, 0, position.y * MAX_CHUNK_WIDTH));
+    shader.SetMatrix4("transform", transform);
+
+    glm::vec3 chunkPos = glm::vec3((position.x * MAX_CHUNK_WIDTH) + (MAX_CHUNK_WIDTH * 0.5f),
+                                    MAX_CHUNK_HEIGHT * 0.5f,
+                                   (position.y * MAX_CHUNK_WIDTH) + (MAX_CHUNK_WIDTH * 0.5f)
+                                  );
+    if (glm::distance(glm::vec2(chunkPos.x, chunkPos.z), glm::vec2(playerPos.x, playerPos.z)) <= distForLOD) {
+        glBindVertexArray(tvao);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, tssbo);
+        glDrawArrays(GL_TRIANGLES, 0, vertexCountTransparent * 6);
+    }     
+
+    glBindVertexArray(0);
 }

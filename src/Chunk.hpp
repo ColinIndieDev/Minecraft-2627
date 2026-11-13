@@ -20,18 +20,22 @@ enum class ChunkGenState : uint8_t {
 
 #define MIN_PLAINS_HEIGHT 50
 #define MAX_PLAINS_HEIGHT 200
+#define SEA_LEVEL 120
 
 struct Chunk {
     ChunkGenState genState = ChunkGenState::None;     
     std::vector<int> vertexBuffer;
+    std::vector<int> vertexBufferTransparent;
     uint8_t blocks[MAX_CHUNK_WIDTH][MAX_CHUNK_HEIGHT][MAX_CHUNK_WIDTH] = {0};
     uint32_t lvao = 0, lvbo = 0;
     uint32_t vao = 0, ssbo = 0;
+    uint32_t tvao = 0, tssbo = 0;
     size_t vertexCount = 0;
+    size_t vertexCountTransparent = 0;
     int maxHeight = 0;
     glm::ivec2 position = glm::ivec2(0);
 
-    void GenerateTree(int localX, int baseY, int localZ, int height);
+    void GenerateTree(int localX, int baseY, int localZ, int height, int &maxHeight);
     
     Chunk(const glm::ivec2 &position);
     ~Chunk();
@@ -40,4 +44,5 @@ struct Chunk {
     void RebuildMesh(std::unordered_map<glm::ivec2, std::unique_ptr<Chunk>> &chunks);
     void UploadData();
     void Render(const Shader &shader, const glm::vec3 &playerPos, float distForLOD);
+    void RenderTransparent(const Shader &shader, const glm::vec3 &playerPos, float distForLOD);
 };
