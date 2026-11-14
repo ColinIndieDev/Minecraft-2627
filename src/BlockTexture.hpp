@@ -28,7 +28,7 @@ inline uint32_t GetTextureArray() {
             "block/oak_log_top.png",
             "block/oak_leaves.png",
             "block/sand.png",
-            "block/water_overlay.png"
+            "water_still.png"
         }, 
         .filter = GL_NEAREST,
     });

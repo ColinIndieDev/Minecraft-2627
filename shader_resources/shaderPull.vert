@@ -7,6 +7,7 @@ out vec2 texCoords;
 flat out int texID;
 out vec3 fragPos;
 out vec3 normal;
+out vec3 eyePos;
 
 uniform mat4 projection;
 uniform mat4 view;
@@ -122,6 +123,7 @@ void main() {
     texID = meshData[idx + 1] & 0xFF;
 
     fragPos = vec3(transform * vec4(vertex, 1.0));
+    eyePos = vec4(view * vec4(fragPos, 1.0)).xyz;
     normal = mat3(transpose(inverse(transform))) * normals[face];
     gl_Position = projection * view * vec4(fragPos, 1.0);
 }

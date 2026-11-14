@@ -115,7 +115,7 @@ Chunk::Chunk(const glm::ivec2 &position) : position(position) {
                 maxHeight = (int)height;
             }
             for (int y = 0; y < (int)height; ++y) {
-                if (y > height - 13 && y <= SEA_LEVEL) {
+                if (y > height - 13 && y <= SEA_LEVEL && height <= SEA_LEVEL) {
                     SetBlock(glm::ivec3(x, y, z), (uint8_t)BlockType::Sand);
                 } else if (y >= height - 2) {
                     SetBlock(glm::ivec3(x, y, z), (uint8_t)BlockType::Grass_Block);
@@ -141,8 +141,6 @@ Chunk::Chunk(const glm::ivec2 &position) : position(position) {
 }
 
 Chunk::~Chunk() {
-    GLUtil::DestroyVertexArray(lvao);
-    GLUtil::DestroyVertexBuffer(lvbo);
     GLUtil::DestroyVertexArray(vao);
     GLUtil::DestroyVertexBuffer(ssbo);
     GLUtil::DestroyVertexArray(tvao);
@@ -166,7 +164,10 @@ uint8_t Chunk::GetBlock(const glm::ivec3 &position) {
     return 0;
 }
 
-void Chunk::RebuildMesh(std::unordered_map<glm::ivec2, std::unique_ptr<Chunk>> &chunks) {
+void Chunk::RebuildMesh(std::unordered_map<glm::ivec2, std::shared_ptr<Chunk>> &chunks) {
+    vertexBuffer.clear();
+    vertexBufferTransparent.clear();
+
     std::vector<int> vertices;
     vertices.reserve(MAX_CHUNK_WIDTH * MAX_CHUNK_WIDTH * maxHeight * 5 * 6);
     std::vector<int> verticesTransparent;
@@ -245,101 +246,17 @@ void Chunk::RebuildMesh(std::unordered_map<glm::ivec2, std::unique_ptr<Chunk>> &
     }
 
     vertexCount = vertices.size() / 2;
-    if (vertexCount > 0) {
-        vertexBuffer.reserve(vertices.size());
-        for (auto v : vertices) {
-            vertexBuffer.push_back(v);
-        }
-    }
-
     vertexCountTransparent = verticesTransparent.size() / 2;
-    if (vertexCountTransparent == 0) return;
 
-    vertexBufferTransparent.reserve(verticesTransparent.size());
-    for (auto v : verticesTransparent) {
-        vertexBufferTransparent.push_back(v);
-    }
+    vertexBuffer = std::move(vertices);
+    vertexBufferTransparent = std::move(verticesTransparent);
 }
 
 void Chunk::UploadData() {
-    GLUtil::DestroyVertexArray(lvao);
-    GLUtil::DestroyVertexBuffer(lvbo);
     GLUtil::DestroyVertexArray(vao);
     GLUtil::DestroyVertexBuffer(ssbo);
     GLUtil::DestroyVertexArray(tvao);
     GLUtil::DestroyVertexBuffer(tssbo);
-
-    // LOD Chunk
-    glGenVertexArrays(1, &lvao);
-    glBindVertexArray(lvao);
-
-    float h = maxHeight;
-    float w = MAX_CHUNK_WIDTH * 0.5f;
-    // LOD Chunk is always the color of the grass block
-    float vertices[] = {
-         // Front
-        -w, -h,  w,  0, 0, 1,  0.0f, 0.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-         w, -h,  w,  0, 0, 1,  1.0f, 0.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-         w,  h,  w,  0, 0, 1,  1.0f, 1.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-        -w, -h,  w,  0, 0, 1,  0.0f, 0.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-         w,  h,  w,  0, 0, 1,  1.0f, 1.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-        -w,  h,  w,  0, 0, 1,  0.0f, 1.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-
-         // Back
-         w, -h, -w,  0, 0,-1,  0.0f, 0.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-        -w, -h, -w,  0, 0,-1,  1.0f, 0.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-        -w,  h, -w,  0, 0,-1,  1.0f, 1.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-         w, -h, -w,  0, 0,-1,  0.0f, 0.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-        -w,  h, -w,  0, 0,-1,  1.0f, 1.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-         w,  h, -w,  0, 0,-1,  0.0f, 1.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-
-         // Top
-        -w,  h,  w,  0, 1, 0,  0.0f, 0.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-         w,  h,  w,  0, 1, 0,  1.0f, 0.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-         w,  h, -w,  0, 1, 0,  1.0f, 1.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-        -w,  h,  w,  0, 1, 0,  0.0f, 0.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-         w,  h, -w,  0, 1, 0,  1.0f, 1.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-        -w,  h, -w,  0, 1, 0,  0.0f, 1.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-         
-         // Bottom
-        -w, -h, -w,  0,-1, 0,  0.0f, 0.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-         w, -h, -w,  0,-1, 0,  1.0f, 0.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-         w, -h,  w,  0,-1, 0,  1.0f, 1.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-        -w, -h, -w,  0,-1, 0,  0.0f, 0.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-         w, -h,  w,  0,-1, 0,  1.0f, 1.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-        -w, -h,  w,  0,-1, 0,  0.0f, 1.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-
-         // Right
-         w, -h,  w,  1, 0, 0,  0.0f, 0.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-         w, -h, -w,  1, 0, 0,  1.0f, 0.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-         w,  h, -w,  1, 0, 0,  1.0f, 1.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-         w, -h,  w,  1, 0, 0,  0.0f, 0.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-         w,  h, -w,  1, 0, 0,  1.0f, 1.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-         w,  h,  w,  1, 0, 0,  0.0f, 1.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-
-         // Left
-        -w, -h, -w, -1, 0, 0,  0.0f, 0.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-        -w, -h,  w, -1, 0, 0,  1.0f, 0.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-        -w,  h,  w, -1, 0, 0,  1.0f, 1.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-        -w, -h, -w, -1, 0, 0,  0.0f, 0.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-        -w,  h,  w, -1, 0, 0,  1.0f, 1.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-        -w,  h, -w, -1, 0, 0,  0.0f, 1.0f, (float)(uint8_t)BlockTexture::Grass_Top,
-    };
-
-    glGenBuffers(1, &lvbo);
-    glBindBuffer(GL_ARRAY_BUFFER, lvbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 9, NULL);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 9, (void *)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 9, (void *)(6 * sizeof(float)));
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(float) * 9, (void *)(8 * sizeof(float)));
-    glEnableVertexAttribArray(3);
-
-    glBindVertexArray(0);
 
     // Vertex pulling (normal)
     glCreateBuffers(1, &ssbo);
@@ -363,24 +280,10 @@ void Chunk::Render(const Shader &shader, const glm::vec3 &playerPos, float distF
     transform = glm::translate(transform, glm::vec3(position.x * MAX_CHUNK_WIDTH, 0, position.y * MAX_CHUNK_WIDTH));
     shader.SetMatrix4("transform", transform);
 
-    glm::vec3 chunkPos = glm::vec3((position.x * MAX_CHUNK_WIDTH) + (MAX_CHUNK_WIDTH * 0.5f),
-                                    MAX_CHUNK_HEIGHT * 0.5f,
-                                   (position.y * MAX_CHUNK_WIDTH) + (MAX_CHUNK_WIDTH * 0.5f)
-                                  );
-    if (glm::distance(chunkPos, playerPos) <= distForLOD) {
-        glBindVertexArray(vao);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo);
-        glDrawArrays(GL_TRIANGLES, 0, vertexCount * 6);
-    } else {
-        /*
-        shader.SetInt("lod", 1);
-        glBindVertexArray(lvao);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-        shader.SetInt("lod", 0);
-        */
-    }
+    glBindVertexArray(vao);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo);
+    glDrawArrays(GL_TRIANGLES, 0, vertexCount * 6);
     glBindVertexArray(0);
-
 }
 
 void Chunk::RenderTransparent(const Shader &shader, const glm::vec3 &playerPos, float distForLOD) {
@@ -390,15 +293,8 @@ void Chunk::RenderTransparent(const Shader &shader, const glm::vec3 &playerPos, 
     transform = glm::translate(transform, glm::vec3(position.x * MAX_CHUNK_WIDTH, 0, position.y * MAX_CHUNK_WIDTH));
     shader.SetMatrix4("transform", transform);
 
-    glm::vec3 chunkPos = glm::vec3((position.x * MAX_CHUNK_WIDTH) + (MAX_CHUNK_WIDTH * 0.5f),
-                                    MAX_CHUNK_HEIGHT * 0.5f,
-                                   (position.y * MAX_CHUNK_WIDTH) + (MAX_CHUNK_WIDTH * 0.5f)
-                                  );
-    if (glm::distance(glm::vec2(chunkPos.x, chunkPos.z), glm::vec2(playerPos.x, playerPos.z)) <= distForLOD) {
-        glBindVertexArray(tvao);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, tssbo);
-        glDrawArrays(GL_TRIANGLES, 0, vertexCountTransparent * 6);
-    }     
-
+    glBindVertexArray(tvao);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, tssbo);
+    glDrawArrays(GL_TRIANGLES, 0, vertexCountTransparent * 6);
     glBindVertexArray(0);
 }

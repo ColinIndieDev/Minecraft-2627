@@ -72,13 +72,6 @@ Cubemap::Cubemap(std::string paths[6]) {
     glEnableVertexArrayAttrib(vao, 0);
     glVertexArrayAttribFormat(vao, 0, 3, GL_FLOAT, GL_FALSE, 0);
     glVertexArrayAttribBinding(vao, 0, 0);
-    // glGenVertexArrays(1, &vao);
-    // glGenBuffers(1, &vbo);
-    // glBindVertexArray(vao);
-    // glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    // glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), &vertices, GL_STATIC_DRAW);
-    // glEnableVertexAttribArray(0);
-    // glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
 
     glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &texture);
 
@@ -91,7 +84,7 @@ Cubemap::Cubemap(std::string paths[6]) {
             stbi_image_free(data);
             exit(-1);
         }
-        glTextureStorage2D(texture, 1, GL_RGBA8, width, height);
+        glTextureStorage2D(texture, 1, GL_SRGB8_ALPHA8, width, height);
         FlipImageHorizontal(data, width, height, channels);
         glTextureSubImage3D(texture, 0, 0, 0, 0, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, data);
         stbi_image_free(data);
@@ -113,31 +106,6 @@ Cubemap::Cubemap(std::string paths[6]) {
     glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTextureParameteri(texture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTextureParameteri(texture, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
-    // glGenTextures(1, &texture);
-    // glBindTexture(GL_TEXTURE_CUBE_MAP, texture);
-
-    // int width, height, channels;
-
-    // for (int i = 0; i < 6; i++) {
-    //     uint8_t *data = stbi_load(paths[i].c_str(), &width, &height, &channels, 0);
-    //     if (data) {
-    //         GLenum format = (channels == 4) ? GL_RGBA : GL_RGB;
-    //         FlipImageHorizontal(data, width , height, channels);
-    //         glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-    //         stbi_image_free(data);
-    //     } else {
-    //         fprintf(stderr, "Failed to load texture at path: %s", paths[i].c_str());
-    //         stbi_image_free(data);
-    //     }
-    // }
-    // glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    // glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    // glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    // glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    // glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
-    // glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 }
 
 void Cubemap::Draw(glm::vec3 rotation, glm::vec4 color, Camera3D &camera, Shader &shader, const glm::mat4 &projection) {
@@ -159,8 +127,6 @@ void Cubemap::Draw(glm::vec3 rotation, glm::vec4 color, Camera3D &camera, Shader
 
     glBindVertexArray(vao);
     glBindTextureUnit(0, texture);
-    // glActiveTexture(GL_TEXTURE0);
-    // glBindTexture(GL_TEXTURE_CUBE_MAP, texture);
     glDrawArrays(GL_TRIANGLES, 0, 36);
     glBindVertexArray(0);
 

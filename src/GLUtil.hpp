@@ -19,18 +19,18 @@ namespace GLUtil {
 
     inline uint32_t LoadTexture(const TextureCreateData &data) {
         uint32_t texture = 0;
-        glGenTextures(1, &texture);
-        glBindTexture(GL_TEXTURE_2D, texture);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, data.wrapping);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, data.wrapping);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, data.filter);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, data.filter);
+        glCreateTextures(GL_TEXTURE_2D, 1, &texture);
 
+        glTextureParameteri(texture, GL_TEXTURE_WRAP_S, data.wrapping);
+        glTextureParameteri(texture, GL_TEXTURE_WRAP_T, data.wrapping);
+        glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER, data.filter);
+        glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, data.filter);
         int w, h, c;
         uint8_t *pixels = stbi_load(data.path.c_str(), &w, &h, &c, 4);
         if (pixels) {
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-            glGenerateMipmap(GL_TEXTURE_2D);
+            glTextureStorage2D(texture, 1, GL_SRGB8_ALPHA8, w, h);
+            glTextureSubImage2D(texture, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+            glGenerateTextureMipmap(texture);
         } else {
             fprintf(stderr, "Failed to load texture at path: %s\n", data.path.c_str());
             exit(-1);
@@ -40,8 +40,6 @@ namespace GLUtil {
         if (data.width) *data.width = w;
         if (data.height) *data.height = h;
         if (data.channels) *data.channels = c;
-
-        glBindTexture(GL_TEXTURE_2D, 0);
 
         return texture;
     }
@@ -57,13 +55,12 @@ namespace GLUtil {
 
     inline uint32_t LoadTextureArray(const TextureArrayCreateData &data) {
         uint32_t textureArray = 0;
-        glGenTextures(1, &textureArray);
-        glBindTexture(GL_TEXTURE_2D_ARRAY, textureArray);
-        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, data.wrapping);
-        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, data.wrapping);
-        glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
-        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, data.filter);
+        glCreateTextures(GL_TEXTURE_2D_ARRAY, 1, &textureArray);
+
+        glTextureParameteri(textureArray, GL_TEXTURE_WRAP_S, data.wrapping);
+        glTextureParameteri(textureArray, GL_TEXTURE_WRAP_T, data.wrapping);
+        glTextureParameteri(textureArray, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+        glTextureParameteri(textureArray, GL_TEXTURE_MAG_FILTER, data.filter);
 
         int width, height, channels;
         for (int i = 0; i < data.paths.size(); ++i) {
@@ -71,7 +68,7 @@ namespace GLUtil {
             auto &path = data.paths[i];
             uint8_t *pixels = stbi_load(path.c_str(), &w, &h, &c, 4);
             if (i == 0) {
-                glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_RGBA8, w, h, data.paths.size()); 
+                glTextureStorage3D(textureArray, 1, GL_SRGB8_ALPHA8, w, h, data.paths.size()); 
                 width = h;
                 height = h;
                 channels = c;
@@ -80,7 +77,8 @@ namespace GLUtil {
                 exit(-1);
             }
             if (pixels) {
-                glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, i, w, h, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+                glTextureSubImage3D(textureArray, 0, 0, 0, i, w, h, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+                glGenerateTextureMipmap(textureArray);
             } else {
                 fprintf(stderr, "Failed to load texture at path: %s\n", path.c_str());
                 exit(-1);
@@ -88,12 +86,9 @@ namespace GLUtil {
             stbi_image_free(pixels);
         }
 
-
         if (data.width) *data.width = width;
         if (data.height) *data.height = height;
         if (data.channels) *data.channels = channels;
-
-        glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
 
         return textureArray;
     }

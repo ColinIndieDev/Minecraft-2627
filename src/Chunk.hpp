@@ -10,9 +10,17 @@
 #include "Shader.hpp"
 
 enum class ChunkGenState : uint8_t {
+    /*
     None = 0,
     Dirty,
     Done
+    */
+    TerrainGenerated,
+    MeshQueued,
+    MeshBuilding,
+    MeshReadyForUpload,
+    MeshReady,
+    MeshDirty
 };
 
 #define MAX_CHUNK_WIDTH 16
@@ -20,20 +28,20 @@ enum class ChunkGenState : uint8_t {
 
 #define MIN_PLAINS_HEIGHT 50
 #define MAX_PLAINS_HEIGHT 200
-#define SEA_LEVEL 120
+#define SEA_LEVEL 145
 
 struct Chunk {
-    ChunkGenState genState = ChunkGenState::None;     
+    ChunkGenState genState = ChunkGenState::TerrainGenerated;     
     std::vector<int> vertexBuffer;
     std::vector<int> vertexBufferTransparent;
     uint8_t blocks[MAX_CHUNK_WIDTH][MAX_CHUNK_HEIGHT][MAX_CHUNK_WIDTH] = {0};
-    uint32_t lvao = 0, lvbo = 0;
     uint32_t vao = 0, ssbo = 0;
     uint32_t tvao = 0, tssbo = 0;
     size_t vertexCount = 0;
     size_t vertexCountTransparent = 0;
     int maxHeight = 0;
     glm::ivec2 position = glm::ivec2(0);
+    bool needsRebuild = false;
 
     void GenerateTree(int localX, int baseY, int localZ, int height, int &maxHeight);
     
@@ -41,7 +49,7 @@ struct Chunk {
     ~Chunk();
     void SetBlock(const glm::ivec3 &pos, uint8_t type);
     uint8_t GetBlock(const glm::ivec3 &pos);
-    void RebuildMesh(std::unordered_map<glm::ivec2, std::unique_ptr<Chunk>> &chunks);
+    void RebuildMesh(std::unordered_map<glm::ivec2, std::shared_ptr<Chunk>> &chunks);
     void UploadData();
     void Render(const Shader &shader, const glm::vec3 &playerPos, float distForLOD);
     void RenderTransparent(const Shader &shader, const glm::vec3 &playerPos, float distForLOD);
