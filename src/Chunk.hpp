@@ -10,12 +10,7 @@
 #include "Shader.hpp"
 
 enum class ChunkGenState : uint8_t {
-    /*
-    None = 0,
-    Dirty,
-    Done
-    */
-    TerrainGenerated,
+    TerrainGenerated = 0,
     MeshQueued,
     MeshBuilding,
     MeshReadyForUpload,
@@ -26,8 +21,8 @@ enum class ChunkGenState : uint8_t {
 #define MAX_CHUNK_WIDTH 16
 #define MAX_CHUNK_HEIGHT 256
 
-#define MIN_PLAINS_HEIGHT 50
-#define MAX_PLAINS_HEIGHT 200
+#define MIN_PLAINS_HEIGHT 50 /* Default: 50 */
+#define MAX_PLAINS_HEIGHT 200 /* Default: 200 */
 #define SEA_LEVEL 145
 
 struct Chunk {
@@ -49,8 +44,8 @@ struct Chunk {
     ~Chunk();
     void SetBlock(const glm::ivec3 &pos, uint8_t type);
     uint8_t GetBlock(const glm::ivec3 &pos);
-    void RebuildMesh(std::unordered_map<glm::ivec2, std::shared_ptr<Chunk>> &chunks);
+    void RebuildMesh(std::unordered_map<glm::ivec2, Chunk> &chunks);
     void UploadData();
-    void Render(const Shader &shader, const glm::vec3 &playerPos, float distForLOD);
-    void RenderTransparent(const Shader &shader, const glm::vec3 &playerPos, float distForLOD);
+    void Render(const Shader &shader, const glm::vec3 &playerPos);
+    void RenderTransparent(const Shader &shader, const glm::vec3 &playerPos);
 };

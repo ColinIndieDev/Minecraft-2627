@@ -113,4 +113,11 @@ namespace GLUtil {
             texture = 0;
         }
     }
+
+    inline void DestroyFramebuffer(uint32_t &fbo) {
+        if (fbo != 0 && glIsFramebuffer(fbo)) {
+            glDeleteFramebuffers(1, &fbo);
+            fbo = 0;
+        }
+    }
 }

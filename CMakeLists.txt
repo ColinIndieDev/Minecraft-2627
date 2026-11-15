@@ -64,6 +64,15 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(fastnoiselite)
 
+# ImGUI
+FetchContent_Declare(
+    imgui
+    GIT_REPOSITORY https://github.com/ocornut/imgui.git
+    GIT_TAG v1.91.8
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(imgui)
+
 # GLAD
 add_subdirectory(external/glad)
 
@@ -77,6 +86,23 @@ add_executable(${CMAKE_PROJECT_NAME}
     src/Chunk.cpp
 )
 
+add_library(imgui STATIC
+    ${imgui_SOURCE_DIR}/imgui.cpp
+    ${imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${imgui_SOURCE_DIR}/imgui_tables.cpp
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+    ${imgui_SOURCE_DIR}/imgui_demo.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+)
+
+target_include_directories(imgui PUBLIC
+    ${imgui_SOURCE_DIR}
+    ${imgui_SOURCE_DIR}/backends
+)
+
+target_link_libraries(imgui PUBLIC glfw OpenGL::GL)
+
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${stb_SOURCE_DIR})
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${fastnoiselite_SOURCE_DIR}/Cpp)
 
@@ -84,4 +110,5 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
     glad
     glfw 
     OpenGL::GL
+    imgui
 )

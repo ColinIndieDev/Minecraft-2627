@@ -20,15 +20,15 @@ enum class BlockTexture : uint8_t {
 inline uint32_t GetTextureArray() {
     return GLUtil::LoadTextureArray({
         .paths = {
-            "block/grass_block_top.png",
-            "block/grass_block_side.png",
-            "block/dirt.png",
-            "block/stone.png",
-            "block/oak_log.png",
-            "block/oak_log_top.png",
-            "block/oak_leaves.png",
-            "block/sand.png",
-            "water_still.png"
+            "assets/block/grass_block_top.png",
+            "assets/block/grass_block_side.png",
+            "assets/block/dirt.png",
+            "assets/block/stone.png",
+            "assets/block/oak_log.png",
+            "assets/block/oak_log_top.png",
+            "assets/block/oak_leaves.png",
+            "assets/block/sand.png",
+            "assets/water_still.png"
         }, 
         .filter = GL_NEAREST,
     });

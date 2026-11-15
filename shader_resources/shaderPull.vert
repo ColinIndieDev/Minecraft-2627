@@ -8,10 +8,12 @@ flat out int texID;
 out vec3 fragPos;
 out vec3 normal;
 out vec3 eyePos;
+out vec4 fragPosLightSpace;
 
 uniform mat4 projection;
 uniform mat4 view;
 uniform mat4 transform;
+uniform mat4 lightSpaceMatrix;
 
 #define FACE_FRONT  0
 #define FACE_BACK   1
@@ -125,5 +127,6 @@ void main() {
     fragPos = vec3(transform * vec4(vertex, 1.0));
     eyePos = vec4(view * vec4(fragPos, 1.0)).xyz;
     normal = mat3(transpose(inverse(transform))) * normals[face];
+    fragPosLightSpace = lightSpaceMatrix * vec4(fragPos, 1.0);
     gl_Position = projection * view * vec4(fragPos, 1.0);
 }

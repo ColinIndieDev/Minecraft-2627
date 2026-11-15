@@ -164,7 +164,7 @@ uint8_t Chunk::GetBlock(const glm::ivec3 &position) {
     return 0;
 }
 
-void Chunk::RebuildMesh(std::unordered_map<glm::ivec2, std::shared_ptr<Chunk>> &chunks) {
+void Chunk::RebuildMesh(std::unordered_map<glm::ivec2, Chunk> &chunks) {
     vertexBuffer.clear();
     vertexBufferTransparent.clear();
 
@@ -204,7 +204,7 @@ void Chunk::RebuildMesh(std::unordered_map<glm::ivec2, std::shared_ptr<Chunk>> &
                     int localX = worldX - chunkX * MAX_CHUNK_WIDTH;
                     int localZ = worldZ - chunkZ * MAX_CHUNK_WIDTH;
 
-                    return !BlockIsTransparent((BlockType)it->second->GetBlock(glm::ivec3(localX, y, localZ))) && it->second->GetBlock(glm::ivec3(localX, y, localZ)) != 0;
+                    return !BlockIsTransparent((BlockType)it->second.GetBlock(glm::ivec3(localX, y, localZ))) && it->second.GetBlock(glm::ivec3(localX, y, localZ)) != 0;
                 };
 
                 auto getBlockGlobalTransparent = [&](int worldX, int y, int worldZ) -> int {
@@ -223,7 +223,7 @@ void Chunk::RebuildMesh(std::unordered_map<glm::ivec2, std::shared_ptr<Chunk>> &
                     int localX = worldX - chunkX * MAX_CHUNK_WIDTH;
                     int localZ = worldZ - chunkZ * MAX_CHUNK_WIDTH;
 
-                    return it->second->GetBlock(glm::ivec3(localX, y, localZ));
+                    return it->second.GetBlock(glm::ivec3(localX, y, localZ));
                 };
 
                 if (BlockIsTransparent((BlockType)blocks[x][y][z])) {
@@ -273,7 +273,7 @@ void Chunk::UploadData() {
     std::vector<int>().swap(vertexBufferTransparent);
 }
 
-void Chunk::Render(const Shader &shader, const glm::vec3 &playerPos, float distForLOD) {
+void Chunk::Render(const Shader &shader, const glm::vec3 &playerPos) {
     if (vertexCount == 0) return;
 
     glm::mat4 transform(1);
@@ -286,7 +286,7 @@ void Chunk::Render(const Shader &shader, const glm::vec3 &playerPos, float distF
     glBindVertexArray(0);
 }
 
-void Chunk::RenderTransparent(const Shader &shader, const glm::vec3 &playerPos, float distForLOD) {
+void Chunk::RenderTransparent(const Shader &shader, const glm::vec3 &playerPos) {
     if (vertexCountTransparent == 0) return;
 
     glm::mat4 transform(1);
