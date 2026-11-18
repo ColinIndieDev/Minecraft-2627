@@ -8,6 +8,7 @@ struct Shader {
     uint32_t id = 0;
 
     Shader(const std::string &vertPath, const std::string &fragPath);
+    Shader(const std::string &vertPath, const std::string &fragPath, const std::string &geomPath);
     void Use() const;
     void SetMatrix4(const std::string &name, const glm::mat4 &matrix) const;
     void SetVector2(const std::string &name, const glm::vec2 &vec2)   const;
@@ -15,4 +16,6 @@ struct Shader {
     void SetVector4(const std::string &name, const glm::vec4 &vec4)   const;
     void SetColor  (const std::string &name, const glm::vec4 &color)  const;
     void SetInt    (const std::string &name, int i)                   const;
+    void SetFloat  (const std::string &name, float i)                 const;
+    void SetBool   (const std::string &name, bool i)                  const;
 };

@@ -18,11 +18,8 @@ struct Sun {
         };
         glCreateVertexArrays(1, &vao);
         glCreateBuffers(1, &vbo);
-
         glNamedBufferData(vbo, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
         glVertexArrayVertexBuffer(vao, 0, vbo, 0, 2 * sizeof(float));
-
         glVertexArrayAttribFormat(vao, 0, 2, GL_FLOAT, GL_FALSE, 0);
         glEnableVertexArrayAttrib(vao, 0);
         glVertexArrayAttribBinding(vao, 0, 0);

@@ -17,7 +17,7 @@
 
 #define NUM_WORKER_THREADS 12
 
-#define DEFAULT_VIEW_DISTANCE 16
+#define DEFAULT_VIEW_DISTANCE 32
 
 namespace Game {
     inline int lastViewDistance = DEFAULT_VIEW_DISTANCE;

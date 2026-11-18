@@ -3,10 +3,10 @@ layout (std430, binding = 0) readonly buffer vertexPullBuffer {
     int meshData[];
 };
 
-out vec2 texCoords;
-flat out int texID;
+// Weird name in order for no naming collision in the geometry stage
+out vec2 gTexCoords;
+flat out int gTexID;
 
-uniform mat4 lightSpaceMatrix;
 uniform mat4 transform;
 
 const vec3 offsets[6][4] = {
@@ -98,8 +98,8 @@ void main() {
     const int curVertexID = gl_VertexID % 6;
     int face = (meshData[idx + 1] >> 8) & 0xFF;
     vertex += offsets[face][indices[curVertexID]];
-    texCoords = uvs[face][indices[curVertexID]];
-    texID = meshData[idx + 1] & 0xFF;
+    gTexCoords = uvs[face][indices[curVertexID]];
+    gTexID = meshData[idx + 1] & 0xFF;
 
-    gl_Position = lightSpaceMatrix * transform * vec4(vertex, 1.0);
+    gl_Position = transform * vec4(vertex, 1.0);
 }

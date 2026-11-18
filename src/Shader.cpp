@@ -33,7 +33,7 @@ char *ReadFile(const std::string &path) {
     return buffer;
 }
 
-bool CheckCompileErrors(uint32_t shader, const std::string &type) {
+void CheckCompileErrors(uint32_t shader, const std::string &type) {
     int success = 0;
     char infoLog[1024] = {0};
     if (type != "PROGRAM") {
@@ -41,17 +41,16 @@ bool CheckCompileErrors(uint32_t shader, const std::string &type) {
         if (!success) {
             glGetShaderInfoLog(shader, 1024, NULL, infoLog);
             fprintf(stderr, "Shader compilation error: %s\n-> %s", type.c_str(), infoLog);
-            return false;
+            exit(-1);
         }
     } else {
         glGetProgramiv(shader, GL_LINK_STATUS, &success);
         if (!success) {
             glGetProgramInfoLog(shader, 1024, NULL, infoLog);
             fprintf(stderr, "Program linking error of type: %s\n%s", type.c_str(), infoLog);
-            return false;
+            exit(-1);
         }
     }
-    return true;
 }
 
 Shader::Shader(const std::string &vertPath, const std::string &fragPath) {
@@ -80,6 +79,41 @@ Shader::Shader(const std::string &vertPath, const std::string &fragPath) {
     glDeleteShader(fragment);
 }
 
+Shader::Shader(const std::string &vertPath, const std::string &fragPath, const std::string &geomPath) {
+    const char *vShaderCode = ReadFile(vertPath);
+    const char *fShaderCode = ReadFile(fragPath);
+    const char *gShaderCode = ReadFile(geomPath);
+
+    uint32_t vertex = 0;
+    uint32_t fragment = 0;
+    uint32_t geometry = 0;
+    vertex = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertex, 1, &vShaderCode, NULL);
+    glCompileShader(vertex);
+    CheckCompileErrors(vertex, "VERTEX");
+    fragment = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragment, 1, &fShaderCode, NULL);
+    glCompileShader(fragment);
+    CheckCompileErrors(fragment, "FRAGMENT");
+    geometry = glCreateShader(GL_GEOMETRY_SHADER);
+    glShaderSource(geometry, 1, &gShaderCode, NULL);
+    glCompileShader(geometry);
+    CheckCompileErrors(geometry, "GEOMETRY");
+    id = glCreateProgram();
+    glAttachShader(id, vertex);
+    glAttachShader(id, fragment);
+    glAttachShader(id, geometry);
+    glLinkProgram(id);
+    CheckCompileErrors(id, "PROGRAM");
+
+    delete[] vShaderCode;
+    delete[] fShaderCode;
+    delete[] gShaderCode;
+    glDeleteShader(vertex);
+    glDeleteShader(fragment);
+    glDeleteShader(geometry);
+}
+
 void Shader::Use() const {
     glUseProgram(id);
 }
@@ -106,4 +140,12 @@ void Shader::SetColor(const std::string &name, const glm::vec4 &color) const {
 
 void Shader::SetInt(const std::string &name, int i) const {
     glUniform1i(glGetUniformLocation(id, name.c_str()), i);
+}
+
+void Shader::SetBool(const std::string &name, bool i) const {
+    glUniform1i(glGetUniformLocation(id, name.c_str()), i);
+}
+
+void Shader::SetFloat(const std::string &name, float i) const {
+    glUniform1f(glGetUniformLocation(id, name.c_str()), i);
 }

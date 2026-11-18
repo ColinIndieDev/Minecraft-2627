@@ -34,6 +34,24 @@ inline uint32_t GetTextureArray() {
     });
 }
 
+inline uint32_t GetTextureArrayNormals() {
+    return GLUtil::LoadTextureArrayNoSRGB({
+        .paths = {
+            "assets/block_w_normals/grass_block_top_n.png",
+            "assets/block_w_normals/grass_block_side_n.png",
+            "assets/block_w_normals/dirt_n.png",
+            "assets/block_w_normals/stone_n.png",
+            "assets/block_w_normals/oak_log_n.png",
+            "assets/block_w_normals/oak_log_top_n.png",
+            "assets/block_w_normals/oak_leaves_n.png",
+            "assets/block_w_normals/sand_n.png",
+            // No normals for water for now
+            "assets/water_still.png"
+        }, 
+        .filter = GL_NEAREST,
+    });
+}
+
 struct BlockFaces {
     BlockTexture top, bottom, front, back, left, right;
 };

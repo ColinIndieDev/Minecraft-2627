@@ -25,7 +25,7 @@
 #include "Game.hpp"
 
 #define ZNEAR 0.01f
-#define ZFAR 100'000.0f
+#define ZFAR 1'000.0f
 
 bool mouseLocked = true;
 
@@ -96,7 +96,8 @@ int main(void) {
     };
     window.Init(800, 500, "Hello OpenGL!", true);
     glfwSetKeyCallback(window.windowPtr, KeyCallback);
-    
+   
+#pragma region ImGUI Setup
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
@@ -106,7 +107,9 @@ int main(void) {
     ImGuiIO& io = ImGui::GetIO();
     ImFont* font = io.Fonts->AddFontFromFileTTF("assets/fonts/Minecraft.ttf", 14.0f);
     ImFont* fontBig = io.Fonts->AddFontFromFileTTF("assets/fonts/Minecraft.ttf", 21.0f);
+#pragma endregion
 
+#pragma region OpenGL Setup
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -114,11 +117,12 @@ int main(void) {
     glDepthFunc(GL_LESS);
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
+#pragma endregion
 
     Shader vertexPullShader("shader_resources/shaderPull.vert", "shader_resources/shader.frag");
     Shader cubemapShader("shader_resources/cubemapShader.vert", "shader_resources/cubemapShader.frag");
     Shader sunShader("shader_resources/sunShader.vert", "shader_resources/sunShader.frag");
-    Shader depthMapShader("shader_resources/depthMapShader.vert", "shader_resources/depthMapShader.frag");
+    Shader depthMapShader("shader_resources/depthMapShader.vert", "shader_resources/depthMapShader.frag", "shader_resources/depthMapShader.geom");
 
     Game::perspective = glm::perspective(glm::radians(Game::camera.fov), (float)window.screenWidth / window.screenHeight, ZNEAR, ZFAR);
 
@@ -138,14 +142,18 @@ int main(void) {
     
     uint32_t lastShadowResolution = 4096;
     uint32_t shadowResolution = lastShadowResolution;
-    bool drawShadows = true;
-    DirectionalShadow directionalShadow(shadowResolution);
+    bool drawShadows = false;
+
+    std::vector<float> shadowCascadeLevels { 
+        ZFAR / 100.0f, ZFAR / 70.0f, ZFAR / 50.0f, ZFAR / 25.0f 
+    };
+    DirectionalShadow directionalShadow(shadowResolution, shadowCascadeLevels.size() + 1);
 
     int lastFogStartChunk = DEFAULT_VIEW_DISTANCE - 2;
     int lastFogEndChunk = DEFAULT_VIEW_DISTANCE;
     int fogStartChunk = lastFogStartChunk;
     int fogEndChunk = lastFogEndChunk;
-    bool fog = true;
+    bool fog = false;
 
     glm::vec3 dirLightDirection = glm::vec3(-0.2f, -0.3f, -0.5f);
     glm::vec3 dirLightAmbient = glm::vec3(0.1f);
@@ -153,6 +161,10 @@ int main(void) {
     glm::vec3 dirLightSpecular = glm::vec3(0.1f);
 
     uint32_t textureArray = GetTextureArray();
+    uint32_t textureArrayNormals = GetTextureArrayNormals();
+
+    float normalStrength = 1.0f;
+    bool normalMapping = false;
 
     Game::CreateChunkGenWorkers();
 
@@ -163,6 +175,7 @@ int main(void) {
         window.Update();
         frustum.Update(Game::perspective * Game::camera.GetViewMatrix());
 
+#pragma region ImGUI Menu
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
@@ -211,10 +224,10 @@ int main(void) {
             ImGui::PushFont(fontBig);
             ImGui::Text("Shadows");
             ImGui::PopFont();
-            ImGui::Checkbox("Shadow Mapping", &drawShadows);
+            ImGui::Checkbox("Enable##1", &drawShadows);
             ImGui::SliderInt("Resolution", (int *)&shadowResolution, 128, 16384);
             if (shadowResolution != lastShadowResolution) {
-                directionalShadow.Resize(shadowResolution);
+                directionalShadow.Resize(shadowResolution, shadowCascadeLevels.size() + 1);
                 lastShadowResolution = shadowResolution;
             }
 
@@ -226,7 +239,7 @@ int main(void) {
             ImGui::PushFont(fontBig);
             ImGui::Text("Fog");
             ImGui::PopFont();
-            ImGui::Checkbox("Enable", &fog);
+            ImGui::Checkbox("Enable##2", &fog);
             ImGui::Text("Fog Start");
             ImGui::SliderInt("Chunks##2", &fogStartChunk, 0, Game::viewDistance);
             if (fogStartChunk != lastFogStartChunk) {
@@ -237,6 +250,12 @@ int main(void) {
             if (fogEndChunk != lastFogEndChunk) {
                 lastFogEndChunk = fogEndChunk;
             }
+
+            ImGui::PushFont(fontBig);
+            ImGui::Text("Normal Mapping");
+            ImGui::PopFont();
+            ImGui::Checkbox("Enable##3", &normalMapping);
+            ImGui::SliderFloat("Normal Strength", &normalStrength, 0.0f, 2.0f);
 
             ImGui::PopFont();
         }
@@ -258,6 +277,7 @@ int main(void) {
         ImGui::End();
 
         ImGui::Render();
+#pragma endregion
 
         window.Clear(glm::vec4(0, 255, 255, 255));
 
@@ -266,13 +286,14 @@ int main(void) {
         std::vector<Chunk *> chunksSorted;
         Game::GetVisibleChunks(chunksSorted, frustum);
 
+#pragma region Shadows
         glm::mat4 lightSpaceMatrix;
         if (drawShadows) {
             float nearPlane = 0.1f, farPlane = 500.0f;
             glm::mat4 lightProjection = glm::ortho(-150.0f, 150.0f, -150.0f, 150.0f, nearPlane, farPlane);
 
             glm::vec3 lightDir = glm::normalize(
-                dirLightDirection
+                -dirLightDirection
             );
             glm::vec3 lightPos = Game::camera.pos - lightDir * 200.0f;
 
@@ -281,8 +302,10 @@ int main(void) {
                                               glm::vec3(0.0f, 1.0f, 0.0f));
             lightSpaceMatrix = lightProjection * lightView;
 
+            directionalShadow.LoadLightSpaceMatricesToBuffer(shadowCascadeLevels, Game::perspective, Game::camera.GetViewMatrix(), lightDir, 
+                                                             ZNEAR, ZFAR, (float)window.screenWidth / window.screenHeight, Game::camera.fov);
+
             depthMapShader.Use();
-            depthMapShader.SetMatrix4("lightSpaceMatrix", lightSpaceMatrix);
 
             directionalShadow.BindDepthMap();
 
@@ -296,29 +319,44 @@ int main(void) {
             glViewport(0, 0, window.screenWidth, window.screenHeight);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         }
+#pragma endregion
 
         map.Draw(glm::vec3(0), glm::vec4(255), Game::camera, cubemapShader, Game::perspective);
 
+#pragma region Rendering Setup
         vertexPullShader.Use();
         vertexPullShader.SetVector3("viewPos", Game::camera.pos);
         vertexPullShader.SetVector3("directionalLight.direction", dirLightDirection);
         vertexPullShader.SetVector3("directionalLight.ambient", dirLightAmbient);
         vertexPullShader.SetVector3("directionalLight.diffuse", dirLightDiffuse);
         vertexPullShader.SetVector3("directionalLight.specular", dirLightSpecular);
+
         vertexPullShader.SetMatrix4("projection", Game::perspective);
         vertexPullShader.SetMatrix4("view", Game::camera.GetViewMatrix());
-        vertexPullShader.SetMatrix4("lightSpaceMatrix", lightSpaceMatrix);
 
-        vertexPullShader.SetInt("fog", fog);
+        vertexPullShader.SetFloat("farPlane", ZFAR);
+        vertexPullShader.SetInt("cascadeCount", shadowCascadeLevels.size());
+        for (int i = 0; i < shadowCascadeLevels.size(); ++i) {
+            vertexPullShader.SetFloat("cascadePlaneDistances[" + std::to_string(i) + "]", shadowCascadeLevels[i]);
+        }
+
         vertexPullShader.SetInt("fogStartBlocks", fogStartChunk * MAX_CHUNK_WIDTH);
         vertexPullShader.SetInt("fogEndBlocks", fogEndChunk * MAX_CHUNK_WIDTH);
 
+        vertexPullShader.SetFloat("normalStrength", normalStrength);
+
         vertexPullShader.SetInt("tex", 0);
         vertexPullShader.SetInt("shadowMap", 1);
-        vertexPullShader.SetInt("lod", 0);
-        vertexPullShader.SetInt("shadows", drawShadows);
+        vertexPullShader.SetInt("texNormal", 2);
+
+        vertexPullShader.SetBool("fog", fog);
+        vertexPullShader.SetBool("shadows", drawShadows);
+        vertexPullShader.SetBool("normalMapping", normalMapping);
+
         glBindTextureUnit(0, textureArray);
-        glBindTextureUnit(1, directionalShadow.depthMap);
+        glBindTextureUnit(1, directionalShadow.depthMaps);
+        glBindTextureUnit(2, textureArrayNormals);
+#pragma endregion
 
         for (auto &chunk : chunksSorted) {
             chunk->Render(vertexPullShader, Game::camera.pos);
