@@ -7,7 +7,7 @@
 // Only for Linux!
 
 namespace StackTracker {
-    inline size_t GetStackUsage() {
+    static inline size_t GetStackUsage() {
         pthread_attr_t attr;
         pthread_getattr_np(pthread_self(), &attr);
 

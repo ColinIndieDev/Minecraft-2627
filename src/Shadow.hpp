@@ -6,37 +6,38 @@
 
 #include "GLUtil.hpp"
 
-struct DirectionalShadow {
-    uint32_t depthMapFbo = 0, depthMaps = 0;
-    uint32_t matricesUBO = 0;
-    uint32_t resolution = 0;
+namespace DirectionalShadow {
+    static inline uint32_t _depthMapFbo = 0, _depthMaps = 0;
+    static inline uint32_t _matricesUBO = 0;
+    static inline uint32_t _resolution = 0;
 
-    DirectionalShadow(uint32_t resolution, uint32_t totalCascades) : resolution(resolution) {
-        if (resolution <= 0) this->resolution = 16;
+    static inline void Init(uint32_t resolution, uint32_t totalCascades) {
+        _resolution = resolution;
+        if (resolution <= 0) _resolution = 16;
 
-        glCreateTextures(GL_TEXTURE_2D_ARRAY, 1, &depthMaps);
-        glTextureStorage3D(depthMaps, 1, GL_DEPTH_COMPONENT32F, resolution, resolution, totalCascades);
+        glCreateTextures(GL_TEXTURE_2D_ARRAY, 1, &_depthMaps);
+        glTextureStorage3D(_depthMaps, 1, GL_DEPTH_COMPONENT32F, resolution, resolution, totalCascades);
 
-        glTextureParameteri(depthMaps, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTextureParameteri(depthMaps, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTextureParameteri(depthMaps, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-        glTextureParameteri(depthMaps, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-        glTextureParameterfv(depthMaps, GL_TEXTURE_BORDER_COLOR, (float[4]){1.0f, 1.0f, 1.0f, 1.0f});
+        glTextureParameteri(_depthMaps, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTextureParameteri(_depthMaps, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTextureParameteri(_depthMaps, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTextureParameteri(_depthMaps, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+        glTextureParameterfv(_depthMaps, GL_TEXTURE_BORDER_COLOR, (float[4]){1.0f, 1.0f, 1.0f, 1.0f});
         
-        glCreateFramebuffers(1, &depthMapFbo);
-        glNamedFramebufferTexture(depthMapFbo, GL_DEPTH_ATTACHMENT, depthMaps, 0);
+        glCreateFramebuffers(1, &_depthMapFbo);
+        glNamedFramebufferTexture(_depthMapFbo, GL_DEPTH_ATTACHMENT, _depthMaps, 0);
 
-        glBindFramebuffer(GL_FRAMEBUFFER, depthMapFbo);
+        glBindFramebuffer(GL_FRAMEBUFFER, _depthMapFbo);
         glDrawBuffer(GL_NONE);
         glReadBuffer(GL_NONE);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-        glCreateBuffers(1, &matricesUBO);
-        glNamedBufferData(matricesUBO, sizeof(glm::mat4) * 16, (void *)0, GL_DYNAMIC_DRAW);
-        glBindBufferBase(GL_UNIFORM_BUFFER, 0, matricesUBO);
+        glCreateBuffers(1, &_matricesUBO);
+        glNamedBufferData(_matricesUBO, sizeof(glm::mat4) * 16, (void *)0, GL_DYNAMIC_DRAW);
+        glBindBufferBase(GL_UNIFORM_BUFFER, 0, _matricesUBO);
     }
 
-    static void GetFrustumCornersWorldSpace(glm::vec4 corners[8], const glm::mat4 &projection, const glm::mat4 &view) {
+    static inline void GetFrustumCornersWorldSpace(glm::vec4 corners[8], const glm::mat4 &projection, const glm::mat4 &view) {
         glm::mat4 inv = glm::inverse(projection * view);
 
         int idx = 0;
@@ -50,7 +51,7 @@ struct DirectionalShadow {
         }
     }
 
-    static glm::mat4 GetLightSpaceMatrix(const glm::mat4 &projection, const glm::mat4 &view, const glm::vec3 &lightDir, float near, float far, float aspect, float fov) {
+    static inline glm::mat4 GetLightSpaceMatrix(const glm::mat4 &projection, const glm::mat4 &view, const glm::vec3 &lightDir, float near, float far, float aspect, float fov) {
         glm::mat4 cascadeProjection = glm::perspective(glm::radians(fov), aspect, near, far);
 
         glm::vec4 corners[8];
@@ -89,7 +90,7 @@ struct DirectionalShadow {
         return lightProjection * lightView;
     }
 
-    static void GetLightSpaceMatrices(std::vector<glm::mat4> &matrices, const std::vector<float> &shadowCascadeLevels, 
+    static inline void GetLightSpaceMatrices(std::vector<glm::mat4> &matrices, const std::vector<float> &shadowCascadeLevels, 
                                       const glm::mat4 &projection, const glm::mat4 &view, const glm::vec3 &lightDir, float near, float far, float aspect, float fov) {
         float previousSplit = near;
 
@@ -100,47 +101,50 @@ struct DirectionalShadow {
         }
     }
 
-    void LoadLightSpaceMatricesToBuffer(const std::vector<float> &shadowCascadeLevels, const glm::mat4 &projection, const glm::mat4 &view, const glm::vec3 &lightDir,
+    static inline void LoadLightSpaceMatricesToBuffer(const std::vector<float> &shadowCascadeLevels, const glm::mat4 &projection, const glm::mat4 &view, const glm::vec3 &lightDir,
                                         float near, float far, float aspect, float fov) {
         std::vector<glm::mat4> matrices;
         GetLightSpaceMatrices(matrices, shadowCascadeLevels, projection, view, lightDir, near, far, aspect, fov);
-        glBindBuffer(GL_UNIFORM_BUFFER, matricesUBO);
+        glBindBuffer(GL_UNIFORM_BUFFER, _matricesUBO);
         for (int i = 0; i < matrices.size(); ++i) {
             glBufferSubData(GL_UNIFORM_BUFFER, i * sizeof(glm::mat4), sizeof(glm::mat4), &matrices[i]);
         }
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
     }
 
-    ~DirectionalShadow() {
-        GLUtil::DestroyTexture(depthMaps);
-        GLUtil::DestroyFramebuffer(depthMapFbo);
+    static inline void Destroy() {
+        GLUtil::DestroyTexture(_depthMaps);
+        GLUtil::DestroyFramebuffer(_depthMapFbo);
     }
 
-    void Resize(uint32_t resolution, uint32_t totalCascades) {
-        this->resolution = resolution;
-        if (resolution <= 0) this->resolution = 16;
+    static inline void Resize(uint32_t resolution, uint32_t totalCascades) {
+        _resolution = resolution;
+        if (resolution <= 0) _resolution = 16;
 
-        glCreateTextures(GL_TEXTURE_2D_ARRAY, 1, &depthMaps);
-        glTextureStorage3D(depthMaps, 1, GL_DEPTH_COMPONENT32F, resolution, resolution, totalCascades);
+        glCreateTextures(GL_TEXTURE_2D_ARRAY, 1, &_depthMaps);
+        glTextureStorage3D(_depthMaps, 1, GL_DEPTH_COMPONENT32F, resolution, resolution, totalCascades);
 
-        glTextureParameteri(depthMaps, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTextureParameteri(depthMaps, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTextureParameteri(depthMaps, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-        glTextureParameteri(depthMaps, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-        glTextureParameterfv(depthMaps, GL_TEXTURE_BORDER_COLOR, (float[4]){1.0f, 1.0f, 1.0f, 1.0f});
+        glTextureParameteri(_depthMaps, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTextureParameteri(_depthMaps, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTextureParameteri(_depthMaps, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTextureParameteri(_depthMaps, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+        glTextureParameterfv(_depthMaps, GL_TEXTURE_BORDER_COLOR, (float[4]){1.0f, 1.0f, 1.0f, 1.0f});
         
-        glCreateFramebuffers(1, &depthMapFbo);
-        glNamedFramebufferTexture(depthMapFbo, GL_DEPTH_ATTACHMENT, depthMaps, 0);
+        glCreateFramebuffers(1, &_depthMapFbo);
+        glNamedFramebufferTexture(_depthMapFbo, GL_DEPTH_ATTACHMENT, _depthMaps, 0);
 
-        glBindFramebuffer(GL_FRAMEBUFFER, depthMapFbo);
-        glDrawBuffer(GL_NONE);
-        glReadBuffer(GL_NONE);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glNamedFramebufferDrawBuffer(_depthMapFbo, GL_NONE);
+        glNamedFramebufferReadBuffer(_depthMapFbo, GL_NONE);
+
+        if (glCheckNamedFramebufferStatus(_depthMapFbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+            fprintf(stderr, "Depth Map Framebuffer incomplete\n");
+            exit(-1);
+        }
     }
 
-    void BindDepthMap() {
-        glViewport(0, 0, resolution, resolution);
-        glBindFramebuffer(GL_FRAMEBUFFER, depthMapFbo);
+    static inline void BindDepthMap() {
+        glViewport(0, 0, _resolution, _resolution);
+        glBindFramebuffer(GL_FRAMEBUFFER, _depthMapFbo);
         glClear(GL_DEPTH_BUFFER_BIT);
         glEnable(GL_DEPTH_TEST);
         // No front culling to prevent peter panning because if using this, the shadows are offset wrong
@@ -148,7 +152,7 @@ struct DirectionalShadow {
         // glCullFace(GL_FRONT);
     }
 
-    void UnbindDepthMap() {
+    static inline void UnbindDepthMap() {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         // glCullFace(GL_BACK);
     }

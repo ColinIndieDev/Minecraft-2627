@@ -18,6 +18,7 @@
 #include "BlockTexture.hpp"
 #include "Sun.hpp"
 #include "Shadow.hpp"
+#include "HDR.hpp"
 
 #include "HeapTrack.hpp"
 #include "StackTracker.hpp"
@@ -35,6 +36,8 @@ void FramebufferSizeCallback(GLFWwindow *window, int width, int height) {
         return;
     }
     Game::perspective = glm::perspective(glm::radians(Game::camera.fov), (float)width / height, ZNEAR, ZFAR);
+    HDR::Resize(width, height);
+
     glViewport(0, 0, width, height);
 }
 
@@ -123,6 +126,7 @@ int main(void) {
     Shader cubemapShader("shader_resources/cubemapShader.vert", "shader_resources/cubemapShader.frag");
     Shader sunShader("shader_resources/sunShader.vert", "shader_resources/sunShader.frag");
     Shader depthMapShader("shader_resources/depthMapShader.vert", "shader_resources/depthMapShader.frag", "shader_resources/depthMapShader.geom");
+    Shader hdrShader("shader_resources/hdrShader.vert", "shader_resources/hdrShader.frag");
 
     Game::perspective = glm::perspective(glm::radians(Game::camera.fov), (float)window.screenWidth / window.screenHeight, ZNEAR, ZFAR);
 
@@ -136,7 +140,7 @@ int main(void) {
     };
     Cubemap map(paths);
 
-    Sun sun;
+    Sun::Init();
 
     Frustum frustum;
     
@@ -147,7 +151,7 @@ int main(void) {
     std::vector<float> shadowCascadeLevels { 
         ZFAR / 100.0f, ZFAR / 70.0f, ZFAR / 50.0f, ZFAR / 25.0f 
     };
-    DirectionalShadow directionalShadow(shadowResolution, shadowCascadeLevels.size() + 1);
+    DirectionalShadow::Init(shadowResolution, shadowCascadeLevels.size() + 1);
 
     int lastFogStartChunk = DEFAULT_VIEW_DISTANCE - 2;
     int lastFogEndChunk = DEFAULT_VIEW_DISTANCE;
@@ -155,16 +159,36 @@ int main(void) {
     int fogEndChunk = lastFogEndChunk;
     bool fog = false;
 
+    HDR::Init(window.screenWidth, window.screenHeight);
+
+    bool hdr = false;
+    float exposure = 1.0f;
+
     glm::vec3 dirLightDirection = glm::vec3(-0.2f, -0.3f, -0.5f);
     glm::vec3 dirLightAmbient = glm::vec3(0.1f);
     glm::vec3 dirLightDiffuse = glm::vec3(0.85f);
     glm::vec3 dirLightSpecular = glm::vec3(0.1f);
+
+    glm::vec3 sunColor = glm::vec3(1.0f, 1.0f, 0.3f);
+
+    glm::vec3 skyboxTint = glm::vec3(1.0f, 1.0f, 1.0f);
 
     uint32_t textureArray = GetTextureArray();
     uint32_t textureArrayNormals = GetTextureArrayNormals();
 
     float normalStrength = 1.0f;
     bool normalMapping = false;
+
+    bool prevMsaa = false;
+    bool msaa = false;
+    if (msaa) glEnable(GL_MULTISAMPLE);
+
+    glm::vec4 grassColor  = glm::vec4(67, 255, 32,  255);
+    glm::vec4 leavesColor = glm::vec4(20, 156, 45,  255);
+    glm::vec4 waterColor  = glm::vec4(12, 155, 220, 200);
+    grassColor /= 255.0f;
+    leavesColor /= 255.0f;
+    waterColor /= 255.0f;
 
     Game::CreateChunkGenWorkers();
 
@@ -227,7 +251,7 @@ int main(void) {
             ImGui::Checkbox("Enable##1", &drawShadows);
             ImGui::SliderInt("Resolution", (int *)&shadowResolution, 128, 16384);
             if (shadowResolution != lastShadowResolution) {
-                directionalShadow.Resize(shadowResolution, shadowCascadeLevels.size() + 1);
+                DirectionalShadow::Resize(shadowResolution, shadowCascadeLevels.size() + 1);
                 lastShadowResolution = shadowResolution;
             }
 
@@ -257,6 +281,19 @@ int main(void) {
             ImGui::Checkbox("Enable##3", &normalMapping);
             ImGui::SliderFloat("Normal Strength", &normalStrength, 0.0f, 2.0f);
 
+            ImGui::PushFont(fontBig);
+            ImGui::Text("Anti Aliasing");
+            ImGui::PopFont();
+            ImGui::Checkbox("MSAA", &msaa);
+            if (msaa != prevMsaa) {
+                if (msaa) {
+                    glEnable(GL_MULTISAMPLE);
+                } else {
+                    glDisable(GL_MULTISAMPLE);
+                }
+                prevMsaa = msaa;
+            }
+
             ImGui::PopFont();
         }
         ImGui::End();
@@ -267,10 +304,36 @@ int main(void) {
             ImGui::PushFont(fontBig);
             ImGui::Text("Directional Light");
             ImGui::PopFont();
+
             ImGui::SliderFloat3("Direction", (float *)&dirLightDirection, -1.0f, 1.0f);
-            ImGui::SliderFloat3("Ambient", (float *)&dirLightAmbient, 0.0f, 1.0f);
-            ImGui::SliderFloat3("Diffuse", (float *)&dirLightDiffuse, 0.0f, 1.0f);
-            ImGui::SliderFloat3("Specular", (float *)&dirLightSpecular, 0.0f, 1.0f);
+            ImGui::ColorEdit3("Ambient Color", (float *)&dirLightAmbient, ImGuiColorEditFlags_DisplayRGB);
+            ImGui::ColorEdit3("Diffuse Color", (float *)&dirLightDiffuse, ImGuiColorEditFlags_DisplayRGB);
+            ImGui::ColorEdit3("Specular Color", (float *)&dirLightSpecular, ImGuiColorEditFlags_DisplayRGB);
+
+            ImGui::PushFont(fontBig);
+            ImGui::Text("Sun");
+            ImGui::PopFont();
+
+            ImGui::ColorEdit3("Sun Color", (float *)&sunColor, ImGuiColorEditFlags_DisplayRGB);
+
+            ImGui::PushFont(fontBig);
+            ImGui::Text("HDR");
+            ImGui::PopFont();
+
+            ImGui::Checkbox("Enable", &hdr);
+            ImGui::SliderFloat("Exposure", &exposure, 0.0f, 10.0f);
+
+            ImGui::PopFont();
+        }
+        ImGui::End();
+
+        if (ImGui::Begin("Colors")) {
+            ImGui::PushFont(font);
+
+            ImGui::ColorEdit4("Water Color", (float *)&waterColor, ImGuiColorEditFlags_DisplayRGB);
+            ImGui::ColorEdit4("Leaves Color", (float *)&leavesColor, ImGuiColorEditFlags_DisplayRGB);
+            ImGui::ColorEdit4("Grass Color", (float *)&grassColor, ImGuiColorEditFlags_DisplayRGB);
+            ImGui::ColorEdit4("Skybox Tint", (float *)&skyboxTint, ImGuiColorEditFlags_DisplayRGB);
 
             ImGui::PopFont();
         }
@@ -302,26 +365,28 @@ int main(void) {
                                               glm::vec3(0.0f, 1.0f, 0.0f));
             lightSpaceMatrix = lightProjection * lightView;
 
-            directionalShadow.LoadLightSpaceMatricesToBuffer(shadowCascadeLevels, Game::perspective, Game::camera.GetViewMatrix(), lightDir, 
+            DirectionalShadow::LoadLightSpaceMatricesToBuffer(shadowCascadeLevels, Game::perspective, Game::camera.GetViewMatrix(), lightDir, 
                                                              ZNEAR, ZFAR, (float)window.screenWidth / window.screenHeight, Game::camera.fov);
 
             depthMapShader.Use();
 
-            directionalShadow.BindDepthMap();
+            DirectionalShadow::BindDepthMap();
 
             for (auto &chunk : chunksSorted) {
                 chunk->Render(depthMapShader, Game::camera.pos);
                 chunk->RenderTransparent(depthMapShader, Game::camera.pos);
             }
 
-            directionalShadow.UnbindDepthMap();
+            DirectionalShadow::UnbindDepthMap();
 
             glViewport(0, 0, window.screenWidth, window.screenHeight);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         }
 #pragma endregion
 
-        map.Draw(glm::vec3(0), glm::vec4(255), Game::camera, cubemapShader, Game::perspective);
+        HDR::BindFramebuffer(msaa);
+
+        map.Draw(glm::vec3(0), glm::vec4(skyboxTint * 255.0f, 255.0f), Game::camera, cubemapShader, Game::perspective);
 
 #pragma region Rendering Setup
         vertexPullShader.Use();
@@ -353,8 +418,12 @@ int main(void) {
         vertexPullShader.SetBool("shadows", drawShadows);
         vertexPullShader.SetBool("normalMapping", normalMapping);
 
+        vertexPullShader.SetVector4("waterColor", waterColor);
+        vertexPullShader.SetVector4("grassColor", grassColor);
+        vertexPullShader.SetVector4("leavesColor", leavesColor);
+
         glBindTextureUnit(0, textureArray);
-        glBindTextureUnit(1, directionalShadow.depthMaps);
+        glBindTextureUnit(1, DirectionalShadow::_depthMaps);
         glBindTextureUnit(2, textureArrayNormals);
 #pragma endregion
 
@@ -366,7 +435,22 @@ int main(void) {
             chunk->RenderTransparent(vertexPullShader, Game::camera.pos);
         }
 
-        sun.Draw(sunShader, Game::camera, Game::perspective, dirLightDirection);
+        sunShader.Use();
+        sunShader.SetVector3("sunColor", sunColor);
+        Sun::Draw(sunShader, Game::camera, Game::perspective, dirLightDirection);
+
+        if (msaa) {
+            HDR::ResolveFramebuffer(window.screenWidth, window.screenHeight);
+        }
+        HDR::UnbindFramebuffer();
+
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        hdrShader.Use();
+        hdrShader.SetInt("hdrBuffer", 0);
+        hdrShader.SetBool("hdr", hdr);
+        hdrShader.SetFloat("exposure", exposure);
+        glBindTextureUnit(0, HDR::_colorBuffers[0]);
+        HDR::DrawScreenQuad();
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
@@ -375,6 +459,9 @@ int main(void) {
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
+
+    DirectionalShadow::Destroy();
+    Sun::Destroy();
 
     window.Close();
 }

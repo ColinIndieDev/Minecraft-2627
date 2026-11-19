@@ -161,4 +161,11 @@ namespace GLUtil {
             fbo = 0;
         }
     }
+
+    inline void DestroyRenderbuffer(uint32_t &rbo) {
+        if (rbo != 0 && glIsRenderbuffer(rbo)) {
+            glDeleteRenderbuffers(1, &rbo);
+            rbo = 0;
+        }
+    }
 }

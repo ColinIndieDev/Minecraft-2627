@@ -6,31 +6,31 @@
 #include "Shader.hpp"
 #include "Camera3D.hpp"
 
-struct Sun {
-    uint32_t vao = 0, vbo = 0;
+namespace Sun {
+    static inline uint32_t _vao = 0, _vbo = 0;
 
-    Sun() {
+    static inline void Init() {
         float vertices[] = {
             -0.5f, -0.5f,
              0.5f, -0.5f,
             -0.5f,  0.5f,
              0.5f,  0.5f 
         };
-        glCreateVertexArrays(1, &vao);
-        glCreateBuffers(1, &vbo);
-        glNamedBufferData(vbo, sizeof(vertices), vertices, GL_STATIC_DRAW);
-        glVertexArrayVertexBuffer(vao, 0, vbo, 0, 2 * sizeof(float));
-        glVertexArrayAttribFormat(vao, 0, 2, GL_FLOAT, GL_FALSE, 0);
-        glEnableVertexArrayAttrib(vao, 0);
-        glVertexArrayAttribBinding(vao, 0, 0);
+        glCreateVertexArrays(1, &_vao);
+        glCreateBuffers(1, &_vbo);
+        glNamedBufferData(_vbo, sizeof(vertices), vertices, GL_STATIC_DRAW);
+        glVertexArrayVertexBuffer(_vao, 0, _vbo, 0, 2 * sizeof(float));
+        glVertexArrayAttribFormat(_vao, 0, 2, GL_FLOAT, GL_FALSE, 0);
+        glEnableVertexArrayAttrib(_vao, 0);
+        glVertexArrayAttribBinding(_vao, 0, 0);
     }
 
-    ~Sun() {
-        GLUtil::DestroyVertexArray(vao); 
-        GLUtil::DestroyVertexBuffer(vbo); 
+    static inline void Destroy() {
+        GLUtil::DestroyVertexArray(_vao); 
+        GLUtil::DestroyVertexBuffer(_vbo); 
     }
 
-    void Draw(const Shader &shader, Camera3D &camera, const glm::mat4 &projection, const glm::vec3 &lightDirection) {
+    static inline void Draw(const Shader &shader, Camera3D &camera, const glm::mat4 &projection, const glm::vec3 &lightDirection) {
         glDepthFunc(GL_LEQUAL);
         glDepthMask(GL_FALSE);
         glEnable(GL_BLEND);
@@ -42,7 +42,7 @@ struct Sun {
         shader.SetMatrix4("view", camera.GetViewMatrix());
         shader.SetMatrix4("projection", projection);
 
-        glBindVertexArray(vao);
+        glBindVertexArray(_vao);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
         glDepthMask(GL_TRUE);

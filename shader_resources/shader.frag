@@ -36,10 +36,9 @@ layout (std140, binding = 0) uniform LightSpaceMatrices {
 };
 uniform float cascadePlaneDistances[16];
 uniform int cascadeCount;
-
-vec4 grassColor = vec4(51.0 / 255.0, 171.0 / 255.0, 65.0 / 255.0, 1.0);
-vec4 leavesColor = vec4(20.0 / 255.0, 156.0 / 255.0, 45.0 / 255.0, 1.0);
-vec4 waterColor = vec4(12.0 / 255.0, 155.0 / 255.0, 220.0 / 255.0, 0.8);
+uniform vec4 grassColor;
+uniform vec4 leavesColor;
+uniform vec4 waterColor;
 
 #define BLOCK_TEXTURE_GRASS_TOP         0
 #define BLOCK_TEXTURE_GRASS_SIDE        1
@@ -102,6 +101,13 @@ float ShadowCalculation(vec3 lightDir) {
     return shadow;
 }
 
+vec3 linearToSRGB(vec3 linearRGB) {
+    bvec3 cutoff = lessThanEqual(linearRGB, vec3(0.0031308));
+    vec3 higher = vec3(1.055) * pow(linearRGB, vec3(1.0 / 2.4)) - vec3(0.055);
+    vec3 lower = linearRGB * vec3(12.92);
+    return mix(higher, lower, cutoff);
+}
+
 void main() {
     vec4 color;
     bool applySpecular = false;
@@ -135,7 +141,7 @@ void main() {
         discard;
     }
 
-    vec3 ambient = directionalLight.ambient * color.rgb;
+    vec3 ambient = linearToSRGB(directionalLight.ambient) * color.rgb;
     vec3 norm = vec3(0.0);
     if (normalMapping) {
         // Normal textures are LabPBR which has to be "encrypted" like this
@@ -154,16 +160,16 @@ void main() {
     vec3 tangentLightDir = normalMapping ? normalize(TBN * lightDir) : lightDir;
 
     float diff = max(dot(norm, tangentLightDir), 0.0);
-    vec3 diffuse = directionalLight.diffuse * diff * color.rgb;
+    vec3 diffuse = linearToSRGB(directionalLight.diffuse) * diff * color.rgb;
     vec3 viewDir = normalize(tangentViewPos - tangentFragPos);
     vec3 reflectDir = reflect(-tangentLightDir, norm);
     vec3 halfwayDir = normalize(tangentLightDir + viewDir);
     float spec = pow(max(dot(norm, halfwayDir), 0.0), specularStrength);
-    vec3 specular = int(applySpecular) * specularIntensity * directionalLight.specular * spec;
+    vec3 specular = int(applySpecular) * specularIntensity * linearToSRGB(directionalLight.specular) * spec;
 
     float shadow = ShadowCalculation(lightDir);
     vec3 result = ambient + (1.0 - shadow) * (diffuse + specular);
-    result = pow(result, vec3(1.0 / 2.2));
+    // result = pow(result, vec3(1.0 / 2.2));
 
     float fogFactor = 1.0;
     if (fog) {

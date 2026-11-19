@@ -3,7 +3,7 @@ out vec4 fragColor;
 
 in vec2 texCoords;
 
-vec3 sunColor = vec3(1.0, 1.0, 0.3);
+uniform vec3 sunColor;
 
 void main() {
     float d = length(texCoords - 0.5) * 2.0;
