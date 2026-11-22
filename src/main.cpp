@@ -1,3 +1,4 @@
+#include "Bloom.hpp"
 #include <string>
 #include <unistd.h>
 #include <pthread.h>
@@ -19,6 +20,7 @@
 #include "Sun.hpp"
 #include "Shadow.hpp"
 #include "HDR.hpp"
+#include "Bloom.hpp"
 
 #include "HeapTrack.hpp"
 #include "StackTracker.hpp"
@@ -37,6 +39,7 @@ void FramebufferSizeCallback(GLFWwindow *window, int width, int height) {
     }
     Game::perspective = glm::perspective(glm::radians(Game::camera.fov), (float)width / height, ZNEAR, ZFAR);
     HDR::Resize(width, height);
+    Bloom::Resize(width, height);
 
     glViewport(0, 0, width, height);
 }
@@ -127,6 +130,7 @@ int main(void) {
     Shader sunShader("shader_resources/sunShader.vert", "shader_resources/sunShader.frag");
     Shader depthMapShader("shader_resources/depthMapShader.vert", "shader_resources/depthMapShader.frag", "shader_resources/depthMapShader.geom");
     Shader hdrShader("shader_resources/hdrShader.vert", "shader_resources/hdrShader.frag");
+    Shader blurShader("shader_resources/blurShader.vert", "shader_resources/blurShader.frag");
 
     Game::perspective = glm::perspective(glm::radians(Game::camera.fov), (float)window.screenWidth / window.screenHeight, ZNEAR, ZFAR);
 
@@ -163,6 +167,10 @@ int main(void) {
 
     bool hdr = false;
     float exposure = 1.0f;
+
+    Bloom::Init(window.screenWidth, window.screenHeight);
+
+    bool bloom = false;
 
     glm::vec3 dirLightDirection = glm::vec3(-0.2f, -0.3f, -0.5f);
     glm::vec3 dirLightAmbient = glm::vec3(0.1f);
@@ -320,8 +328,14 @@ int main(void) {
             ImGui::Text("HDR");
             ImGui::PopFont();
 
-            ImGui::Checkbox("Enable", &hdr);
+            ImGui::Checkbox("Enable##0", &hdr);
             ImGui::SliderFloat("Exposure", &exposure, 0.0f, 10.0f);
+
+            ImGui::PushFont(fontBig);
+            ImGui::Text("Bloom");
+            ImGui::PopFont();
+
+            ImGui::Checkbox("Enable##1", &bloom);
 
             ImGui::PopFont();
         }
@@ -444,12 +458,22 @@ int main(void) {
         }
         HDR::UnbindFramebuffer();
 
+        bool horizontal = false;
+        if (bloom) {
+            horizontal = Bloom::BlurColorBuffer(blurShader, msaa ? HDR::_msaaColorBuffers[1] : HDR::_colorBuffers[1]);
+        }
+
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         hdrShader.Use();
         hdrShader.SetInt("hdrBuffer", 0);
+        hdrShader.SetInt("bloomBlur", 1);
+        hdrShader.SetBool("bloom", bloom);
         hdrShader.SetBool("hdr", hdr);
         hdrShader.SetFloat("exposure", exposure);
         glBindTextureUnit(0, HDR::_colorBuffers[0]);
+        if (bloom) {
+            glBindTextureUnit(1, Bloom::_pingPongColorBuffers[!horizontal]);
+        }
         HDR::DrawScreenQuad();
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

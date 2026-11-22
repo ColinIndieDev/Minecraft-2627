@@ -33,7 +33,7 @@ namespace Sun {
     static inline void Draw(const Shader &shader, Camera3D &camera, const glm::mat4 &projection, const glm::vec3 &lightDirection) {
         glDepthFunc(GL_LEQUAL);
         glDepthMask(GL_FALSE);
-        glEnable(GL_BLEND);
+
         glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 
         shader.Use();
@@ -45,8 +45,9 @@ namespace Sun {
         glBindVertexArray(_vao);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
         glDepthMask(GL_TRUE);
         glDepthFunc(GL_LESS);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
 };

@@ -1,5 +1,6 @@
 #version 450 core
-out vec4 fragColor;
+layout (location = 0) out vec4 fragColor;
+layout (location = 1) out vec4 brightColor;
 
 in vec2 texCoords;
 flat in int texID;
@@ -169,13 +170,19 @@ void main() {
 
     float shadow = ShadowCalculation(lightDir);
     vec3 result = ambient + (1.0 - shadow) * (diffuse + specular);
-    // result = pow(result, vec3(1.0 / 2.2));
 
     float fogFactor = 1.0;
     if (fog) {
         float distance = length(eyePos);
         fogFactor = clamp((distance - fogStartBlocks) / (fogEndBlocks - fogStartBlocks), 0.0, 1.0);
         fogFactor = 1.0 - fogFactor;
+    }
+
+    float brightness = dot(result, vec3(0.2126, 0.7152, 0.0722));
+    if (brightness > 1.0) {
+        brightColor = vec4(result, color.a * fogFactor);
+    } else {
+        brightColor = vec4(0.0, 0.0, 0.0, 1.0);
     }
 
     fragColor = vec4(result, color.a * fogFactor);

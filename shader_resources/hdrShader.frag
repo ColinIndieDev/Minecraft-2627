@@ -4,7 +4,9 @@ out vec4 fragColor;
 in vec2 texCoords;
 
 uniform sampler2D hdrBuffer;
+uniform sampler2D bloomBlur;
 uniform bool hdr;
+uniform bool bloom;
 uniform float exposure;
 
 vec3 acesFilm(vec3 x) {
@@ -24,6 +26,10 @@ vec3 acesFilm(vec3 x) {
 
 void main() {
     vec3 color = texture(hdrBuffer, texCoords).rgb;
+    if (bloom) {
+        vec3 bloomColor = texture(bloomBlur, texCoords).rgb;
+        color += bloomColor;
+    }
 
     if (hdr) {
         color = acesFilm(color * exposure);

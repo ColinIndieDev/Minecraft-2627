@@ -31,6 +31,11 @@ namespace HDR {
 
         glNamedFramebufferRenderbuffer(_hdrFbo, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, _rboDepth);
 
+        glBindFramebuffer(GL_FRAMEBUFFER, _hdrFbo);
+        uint32_t attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+        glDrawBuffers(2, attachments);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
         if (glCheckNamedFramebufferStatus(_hdrFbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
             fprintf(stderr, "HDR Framebuffer incomplete\n");
             exit(-1);
@@ -51,6 +56,11 @@ namespace HDR {
         glNamedRenderbufferStorageMultisample(_msaaRboDepth, _msaaSamples, GL_DEPTH_COMPONENT24, screenWidth, screenHeight);
 
         glNamedFramebufferRenderbuffer(_msaaHdrFbo, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, _msaaRboDepth);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, _msaaHdrFbo);
+        uint32_t attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+        glDrawBuffers(2, attachments);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         if (glCheckNamedFramebufferStatus(_msaaHdrFbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
             fprintf(stderr, "MSAA HDR Framebuffer incomplete\n");
@@ -102,7 +112,7 @@ namespace HDR {
 
     static inline void ResolveFramebuffer(uint32_t screenWidth, uint32_t screenHeight) {
         // Ofc assuming screen size = framebuffer size
-        glBlitNamedFramebuffer(_msaaHdrFbo,_hdrFbo, 0, 0, screenWidth, screenHeight, 0, 0, screenWidth, screenHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+        glBlitNamedFramebuffer(_msaaHdrFbo, _hdrFbo, 0, 0, screenWidth, screenHeight, 0, 0, screenWidth, screenHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
     }
 
     static inline void UnbindFramebuffer() {
