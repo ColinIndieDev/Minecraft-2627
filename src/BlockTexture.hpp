@@ -15,6 +15,11 @@ enum class BlockTexture : uint8_t {
     Oak_Leaves,
     Sand,
     Water,
+    Snow,
+    Spruce_Log,
+    Spruce_Log_Top,
+    Spruce_Leaves,
+    Ice
 };
 
 inline uint32_t GetTextureArray() {
@@ -28,7 +33,12 @@ inline uint32_t GetTextureArray() {
             "assets/block/oak_log_top.png",
             "assets/block/oak_leaves.png",
             "assets/block/sand.png",
-            "assets/water_still.png"
+            "assets/water_still.png",
+            "assets/block/snow.png",
+            "assets/block/spruce_log.png",
+            "assets/block/spruce_log_top.png",
+            "assets/block/spruce_leaves.png",
+            "assets/block/ice.png",
         }, 
         .filter = GL_NEAREST,
     });
@@ -46,7 +56,12 @@ inline uint32_t GetTextureArrayNormals() {
             "assets/block_w_normals/oak_leaves_n.png",
             "assets/block_w_normals/sand_n.png",
             // No normals for water for now
-            "assets/water_still.png"
+            "assets/water_still.png",
+            "assets/block_w_normals/snow.png",
+            "assets/block_w_normals/spruce_log.png",
+            "assets/block_w_normals/spruce_log_top.png",
+            "assets/block_w_normals/spruce_leaves.png",
+            "assets/block_w_normals/ice.png",
         }, 
         .filter = GL_NEAREST,
     });
@@ -122,5 +137,41 @@ inline BlockFaces blockTypeToBlockFace[(int)BlockType::Size] = {
         .back   = BlockTexture::Water,
         .left   = BlockTexture::Water,
         .right  = BlockTexture::Water
+    },
+    // Snow
+    {
+        .top    = BlockTexture::Snow,
+        .bottom = BlockTexture::Snow,
+        .front  = BlockTexture::Snow,
+        .back   = BlockTexture::Snow,
+        .left   = BlockTexture::Snow,
+        .right  = BlockTexture::Snow
+    },
+    // Spruce Log
+    {
+        .top    = BlockTexture::Spruce_Log_Top,
+        .bottom = BlockTexture::Spruce_Log_Top,
+        .front  = BlockTexture::Spruce_Log,
+        .back   = BlockTexture::Spruce_Log,
+        .left   = BlockTexture::Spruce_Log,
+        .right  = BlockTexture::Spruce_Log
+    },
+    // Spruce Leaves
+    {
+        .top    = BlockTexture::Spruce_Leaves,
+        .bottom = BlockTexture::Spruce_Leaves,
+        .front  = BlockTexture::Spruce_Leaves,
+        .back   = BlockTexture::Spruce_Leaves,
+        .left   = BlockTexture::Spruce_Leaves,
+        .right  = BlockTexture::Spruce_Leaves
+    },
+    // Ice
+    {
+        .top    = BlockTexture::Ice,
+        .bottom = BlockTexture::Ice,
+        .front  = BlockTexture::Ice,
+        .back   = BlockTexture::Ice,
+        .left   = BlockTexture::Ice,
+        .right  = BlockTexture::Ice
     },
 };

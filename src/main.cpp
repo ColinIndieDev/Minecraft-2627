@@ -1,4 +1,3 @@
-#include "Bloom.hpp"
 #include <string>
 #include <unistd.h>
 #include <pthread.h>
@@ -10,7 +9,6 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
-#include "GLUtil.hpp"
 #include "Shader.hpp"
 #include "Window.hpp"
 #include "Cubemap.hpp"
@@ -125,37 +123,30 @@ int main(void) {
     glCullFace(GL_BACK);
 #pragma endregion
 
-    Shader vertexPullShader("shader_resources/shaderPull.vert", "shader_resources/shader.frag");
-    Shader cubemapShader("shader_resources/cubemapShader.vert", "shader_resources/cubemapShader.frag");
-    Shader sunShader("shader_resources/sunShader.vert", "shader_resources/sunShader.frag");
-    Shader depthMapShader("shader_resources/depthMapShader.vert", "shader_resources/depthMapShader.frag", "shader_resources/depthMapShader.geom");
-    Shader hdrShader("shader_resources/quadShader.vert", "shader_resources/hdrShader.frag");
-    Shader blurShader("shader_resources/quadShader.vert", "shader_resources/blurShader.frag");
+#pragma region Shader Creation
+    Shader vertexPullShader("shader_resources/vertexPullShader.vert",
+                            "shader_resources/lightingShader.frag");
+    Shader cubemapShader   ("shader_resources/cubemap/cubemapShader.vert",
+                            "shader_resources/cubemap/cubemapShader.frag");
+    Shader sunShader       ("shader_resources/sun/sunShader.vert",
+                            "shader_resources/sun/sunShader.frag");
+    Shader depthMapShader  ("shader_resources/depthmap/depthMapShader.vert",   
+                            "shader_resources/depthmap/depthMapShader.frag", 
+                            "shader_resources/depthmap/depthMapShader.geom");
+    Shader hdrShader       ("shader_resources/pp/quadShader.vert",
+                            "shader_resources/pp/hdrShader.frag");
+    Shader blurShader      ("shader_resources/pp/quadShader.vert",       
+                            "shader_resources/pp/blurShader.frag");
+#pragma endregion
 
     Game::perspective = glm::perspective(glm::radians(Game::camera.fov), (float)window.screenWidth / window.screenHeight, ZNEAR, ZFAR);
 
-    std::string paths[6] = {
-        "assets/sky/px.png",
-        "assets/sky/nx.png",
-        "assets/sky/py.png",
-        "assets/sky/ny.png",
-        "assets/sky/nz.png",
-        "assets/sky/pz.png",
-    };
-    Cubemap map(paths);
-
-    Sun::Init();
-
-    Frustum frustum;
-    
     uint32_t lastShadowResolution = 4096;
     uint32_t shadowResolution = lastShadowResolution;
     bool drawShadows = false;
-
     std::vector<float> shadowCascadeLevels { 
         ZFAR / 100.0f, ZFAR / 70.0f, ZFAR / 50.0f, ZFAR / 25.0f 
     };
-    DirectionalShadow::Init(shadowResolution, shadowCascadeLevels.size() + 1);
 
     int lastFogStartChunk = DEFAULT_VIEW_DISTANCE - 2;
     int lastFogEndChunk = DEFAULT_VIEW_DISTANCE;
@@ -163,14 +154,12 @@ int main(void) {
     int fogEndChunk = lastFogEndChunk;
     bool fog = false;
 
-    HDR::Init(window.screenWidth, window.screenHeight);
-
     bool hdr = false;
     float exposure = 1.0f;
 
-    Bloom::Init(window.screenWidth, window.screenHeight);
-
     bool bloom = false;
+    int totalBlurAmount = 10;
+    float bloomIntensity = 1.0f;
 
     glm::vec3 dirLightDirection = glm::vec3(-0.2f, -0.3f, -0.5f);
     glm::vec3 dirLightAmbient = glm::vec3(0.1f);
@@ -181,15 +170,11 @@ int main(void) {
 
     glm::vec3 skyboxTint = glm::vec3(1.0f, 1.0f, 1.0f);
 
-    uint32_t textureArray = GetTextureArray();
-    uint32_t textureArrayNormals = GetTextureArrayNormals();
-
     float normalStrength = 1.0f;
     bool normalMapping = false;
 
     bool prevMsaa = false;
     bool msaa = false;
-    if (msaa) glEnable(GL_MULTISAMPLE);
 
     glm::vec4 grassColor  = glm::vec4(67, 255, 32,  255);
     glm::vec4 leavesColor = glm::vec4(20, 156, 45,  255);
@@ -198,8 +183,31 @@ int main(void) {
     leavesColor /= 255.0f;
     waterColor /= 255.0f;
 
+    std::string paths[6] = {
+        "assets/sky/px.png",
+        "assets/sky/nx.png",
+        "assets/sky/py.png",
+        "assets/sky/ny.png",
+        "assets/sky/nz.png",
+        "assets/sky/pz.png",
+    };
+
+    Cubemap map(paths);
+    Frustum frustum;
+
+    Sun::Init();
+    DirectionalShadow::Init(shadowResolution, shadowCascadeLevels.size() + 1);
+    HDR::Init(window.screenWidth, window.screenHeight);
+    Bloom::Init(window.screenWidth, window.screenHeight);
+
+    uint32_t textureArray = GetTextureArray();
+    uint32_t textureArrayNormals = GetTextureArrayNormals();
+
+    if (msaa) glEnable(GL_MULTISAMPLE);
+
     Game::CreateChunkGenWorkers();
 
+#pragma region Texture Binding Shader Setup
     hdrShader.Use();
     hdrShader.SetTextureBinding("hdrBuffer", 0);
     hdrShader.SetTextureBinding("bloomBlur", 1);
@@ -208,6 +216,7 @@ int main(void) {
     vertexPullShader.SetTextureBinding("tex", 0);
     vertexPullShader.SetTextureBinding("shadowMap", 1);
     vertexPullShader.SetTextureBinding("texNormal", 2);
+#pragma endregion
 
     while (!window.ShouldClose()) {
         Game::UploadChunkDataToGPU();
@@ -345,6 +354,8 @@ int main(void) {
             ImGui::PopFont();
 
             ImGui::Checkbox("Enable##1", &bloom);
+            ImGui::SliderFloat("Intensity", &bloomIntensity, 0.0f, 3.0f);
+            ImGui::SliderInt("Blur Amount", &totalBlurAmount, 1, 100);
 
             ImGui::PopFont();
         }
@@ -365,14 +376,14 @@ int main(void) {
         ImGui::Render();
 #pragma endregion
 
-        window.Clear(glm::vec4(0, 255, 255, 255));
+        window.Clear(glm::vec4(0, 0, 0, 255));
 
         Game::HandleInput(window);
 
         std::vector<Chunk *> chunksSorted;
         Game::GetVisibleChunks(chunksSorted, frustum);
 
-#pragma region Shadows
+#pragma region Shadow Rendering
         glm::mat4 lightSpaceMatrix;
         if (drawShadows) {
             float nearPlane = 0.1f, farPlane = 500.0f;
@@ -409,9 +420,10 @@ int main(void) {
 
         HDR::BindFramebuffer(msaa);
 
+#pragma region Rendering Scene
         map.Draw(glm::vec3(0), glm::vec4(skyboxTint * 255.0f, 255.0f), Game::camera, cubemapShader, Game::perspective);
 
-#pragma region Rendering Setup
+#pragma region Shader Setup
         vertexPullShader.Use();
         vertexPullShader.SetVector3("viewPos", Game::camera.pos);
         vertexPullShader.SetVector3("directionalLight.direction", dirLightDirection);
@@ -457,6 +469,7 @@ int main(void) {
         sunShader.Use();
         sunShader.SetVector3("sunColor", sunColor);
         Sun::Draw(sunShader, Game::camera, Game::perspective, dirLightDirection);
+#pragma endregion
 
         if (msaa) {
             HDR::ResolveFramebuffer(window.screenWidth, window.screenHeight);
@@ -465,18 +478,23 @@ int main(void) {
 
         bool horizontal = false;
         if (bloom) {
-            horizontal = Bloom::BlurColorBuffer(blurShader, msaa ? HDR::_msaaColorBuffers[1] : HDR::_colorBuffers[1]);
+            horizontal = Bloom::BlurColorBuffer(blurShader, msaa ? HDR::_msaaColorBuffers[1] : HDR::_colorBuffers[1], totalBlurAmount);
         }
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+#pragma region Shader Setup
         hdrShader.Use();
         hdrShader.SetBool("bloom", bloom);
         hdrShader.SetBool("hdr", hdr);
         hdrShader.SetFloat("exposure", exposure);
+        hdrShader.SetFloat("bloomIntensity", bloomIntensity);
         glBindTextureUnit(0, HDR::_colorBuffers[0]);
         if (bloom) {
             glBindTextureUnit(1, Bloom::_pingPongColorBuffers[!horizontal]);
         }
+#pragma endregion
+
         HDR::DrawScreenQuad();
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -487,6 +505,8 @@ int main(void) {
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
 
+    Bloom::Destroy();
+    HDR::Destroy();
     DirectionalShadow::Destroy();
     Sun::Destroy();
 

@@ -64,13 +64,22 @@ namespace Bloom {
         CreateFramebuffers(screenWidth, screenHeight);
     }
 
-    static inline bool BlurColorBuffer(const Shader &shader, uint32_t colorBuffer) {
+    static inline void Destroy() {
+        GLUtil::DestroyFramebuffer(_pingPongFbo[0]);
+        GLUtil::DestroyFramebuffer(_pingPongFbo[1]);
+        GLUtil::DestroyTexture(_pingPongColorBuffers[0]);
+        GLUtil::DestroyTexture(_pingPongColorBuffers[1]);
+
+        GLUtil::DestroyVertexArray(_vao);
+        GLUtil::DestroyVertexBuffer(_vbo);
+    }
+
+    static inline bool BlurColorBuffer(const Shader &shader, uint32_t colorBuffer, int totalBlurAmount) {
         bool horizontal = true;
         bool firstIteration = true;
 
         shader.Use();
 
-        int totalBlurAmount = 10;
         for (int i = 0; i < totalBlurAmount; ++i) {
             glBindFramebuffer(GL_FRAMEBUFFER, _pingPongFbo[horizontal]);
             shader.SetInt("horizontal", horizontal);

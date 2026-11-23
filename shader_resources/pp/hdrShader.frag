@@ -8,6 +8,7 @@ uniform sampler2D bloomBlur;
 uniform bool hdr;
 uniform bool bloom;
 uniform float exposure;
+uniform float bloomIntensity;
 
 vec3 acesFilm(vec3 x) {
     const float a = 2.51;
@@ -27,7 +28,7 @@ vec3 acesFilm(vec3 x) {
 void main() {
     vec3 color = texture(hdrBuffer, texCoords).rgb;
     if (bloom) {
-        vec3 bloomColor = texture(bloomBlur, texCoords).rgb;
+        vec3 bloomColor = texture(bloomBlur, texCoords).rgb * bloomIntensity;
         color += bloomColor;
     }
 

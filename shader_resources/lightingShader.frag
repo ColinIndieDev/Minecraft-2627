@@ -41,10 +41,12 @@ uniform vec4 grassColor;
 uniform vec4 leavesColor;
 uniform vec4 waterColor;
 
-#define BLOCK_TEXTURE_GRASS_TOP         0
-#define BLOCK_TEXTURE_GRASS_SIDE        1
-#define BLOCK_TEXTURE_OAK_LEAVES_SIDE   6
-#define BLOCK_TEXTURE_WATER             8
+#define BLOCK_TEXTURE_GRASS_TOP          0
+#define BLOCK_TEXTURE_GRASS_SIDE         1
+#define BLOCK_TEXTURE_OAK_LEAVES_SIDE    6
+#define BLOCK_TEXTURE_WATER              8
+#define BLOCK_TEXTURE_SPRUCE_LEAVES_SIDE 12
+#define BLOCK_TEXTURE_ICE 13
 
 float ShadowCalculation(vec3 lightDir) {
     if (!shadows) return 0.0;
@@ -129,10 +131,13 @@ void main() {
         color = grassColor * texture(tex, vec3(texCoords, texID));
     } else if (texID == BLOCK_TEXTURE_GRASS_SIDE) {
         color = texture(tex, vec3(texCoords, texID));
-    } else if (texID == BLOCK_TEXTURE_OAK_LEAVES_SIDE) {
+    } else if (texID == BLOCK_TEXTURE_OAK_LEAVES_SIDE || texID == BLOCK_TEXTURE_SPRUCE_LEAVES_SIDE) {
         color = leavesColor * texture(tex, vec3(texCoords, texID));
     } else if (texID == BLOCK_TEXTURE_WATER) {
         color = waterColor * texture(tex, vec3(texCoords, texID));
+        applySpecular = true;
+    } else if (texID == BLOCK_TEXTURE_ICE) {
+        color = texture(tex, vec3(texCoords, texID));
         applySpecular = true;
     } else {
         color = texture(tex, vec3(texCoords, texID));

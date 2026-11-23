@@ -11,9 +11,13 @@ enum class BlockType : uint8_t {
     Oak_Leaves,
     Sand,
     Water,
+    Snow,
+    Spruce_Log,
+    Spruce_Leaves,
+    Ice,
     Size
 };
 
 inline bool BlockIsTransparent(BlockType type) {
-    return type == BlockType::Oak_Leaves || type == BlockType::Water;
+    return type == BlockType::Oak_Leaves || type == BlockType::Water || type == BlockType::Spruce_Leaves || type == BlockType::Ice;
 }

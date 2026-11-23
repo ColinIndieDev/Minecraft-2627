@@ -103,6 +103,20 @@ namespace HDR {
         CreateMSAAFramebuffer(screenWidth, screenHeight);
     }
 
+    static inline void Destroy() {
+        GLUtil::DestroyFramebuffer(_hdrFbo);
+        GLUtil::DestroyTexture(_colorBuffers[0]);
+        GLUtil::DestroyTexture(_colorBuffers[1]);
+        GLUtil::DestroyRenderbuffer(_rboDepth);
+        GLUtil::DestroyFramebuffer(_msaaHdrFbo);
+        GLUtil::DestroyTexture(_msaaColorBuffers[0]);
+        GLUtil::DestroyTexture(_msaaColorBuffers[1]);
+        GLUtil::DestroyRenderbuffer(_msaaRboDepth);
+
+        GLUtil::DestroyVertexArray(_vao);
+        GLUtil::DestroyVertexBuffer(_vbo);
+    }
+
     static inline void BindFramebuffer(bool msaa) {
         glBindFramebuffer(GL_FRAMEBUFFER, msaa ? _msaaHdrFbo : _hdrFbo);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <vector>
 #include <unordered_map>
-#include <memory>
 
 #include <glm/glm.hpp>
 
@@ -23,7 +22,7 @@ enum class ChunkGenState : uint8_t {
 
 #define MIN_PLAINS_HEIGHT 50 /* Default: 50 */
 #define MAX_PLAINS_HEIGHT 200 /* Default: 200 */
-#define SEA_LEVEL 145
+#define SEA_LEVEL 90
 
 struct Chunk {
     ChunkGenState genState = ChunkGenState::TerrainGenerated;     

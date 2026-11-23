@@ -50,6 +50,7 @@ void AddLeftFace(std::vector<int> &v, int x, int y, int z, BlockTexture blockTex
     AddVertex(v, x,   y,   z,   FaceDirection::Left, blockTex);
 }
 
+// TODO Lets do sth here
 void Chunk::GenerateTree(int localX, int baseY, int localZ, int height, int &maxHeight) {
     int trunkHeight = height;
     int leavesStart = baseY + trunkHeight - 2;
@@ -59,7 +60,7 @@ void Chunk::GenerateTree(int localX, int baseY, int localZ, int height, int &max
 
     for (int y = baseY; y < baseY + trunkHeight; ++y) {
         if (y < MAX_CHUNK_HEIGHT) {
-            SetBlock(glm::ivec3(localX, y, localZ), (uint8_t)BlockType::Oak_Log);
+            SetBlock(glm::ivec3(localX, y, localZ), (uint8_t)BlockType::Spruce_Log);
         }
     }
 
@@ -85,7 +86,7 @@ void Chunk::GenerateTree(int localX, int baseY, int localZ, int height, int &max
 
                     if (blocks[targetX][y][targetZ] == (uint8_t)BlockType::Air ||
                         blocks[targetX][y][targetZ] == 0) {
-                        SetBlock(glm::ivec3(targetX, y, targetZ), (uint8_t)BlockType::Oak_Leaves);
+                        SetBlock(glm::ivec3(targetX, y, targetZ), (uint8_t)BlockType::Spruce_Leaves);
                     }
                 }
             }
@@ -115,10 +116,11 @@ Chunk::Chunk(const glm::ivec2 &position) : position(position) {
                 maxHeight = (int)height;
             }
             for (int y = 0; y < (int)height; ++y) {
+                // TODO Lets do sth here
                 if (y > height - 13 && y <= SEA_LEVEL && height <= SEA_LEVEL) {
                     SetBlock(glm::ivec3(x, y, z), (uint8_t)BlockType::Sand);
                 } else if (y >= height - 2) {
-                    SetBlock(glm::ivec3(x, y, z), (uint8_t)BlockType::Grass_Block);
+                    SetBlock(glm::ivec3(x, y, z), (uint8_t)BlockType::Snow);
                 } else if (y > height - 6) {
                     SetBlock(glm::ivec3(x, y, z), (uint8_t)BlockType::Dirt);
                 } else {
@@ -127,6 +129,10 @@ Chunk::Chunk(const glm::ivec2 &position) : position(position) {
             }
             for (int waterY = SEA_LEVEL; waterY >= height - 1; waterY--) {
                 if (GetBlock(glm::ivec3(x, waterY, z)) == 0) {
+                    if (waterY == SEA_LEVEL) {
+                        SetBlock(glm::ivec3(x, waterY, z), (uint8_t)BlockType::Ice);
+                        continue;
+                    }
                     SetBlock(glm::ivec3(x, waterY, z), (uint8_t)BlockType::Water);
                     if (waterY > maxHeight) {
                         maxHeight = waterY;
