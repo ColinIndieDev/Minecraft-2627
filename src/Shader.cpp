@@ -149,3 +149,7 @@ void Shader::SetBool(const std::string &name, bool i) const {
 void Shader::SetFloat(const std::string &name, float i) const {
     glUniform1f(glGetUniformLocation(id, name.c_str()), i);
 }
+
+void Shader::SetTextureBinding(const std::string &name, uint32_t texture) const {
+    glUniform1i(glGetUniformLocation(id, name.c_str()), texture);
+}

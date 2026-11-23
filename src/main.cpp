@@ -129,8 +129,8 @@ int main(void) {
     Shader cubemapShader("shader_resources/cubemapShader.vert", "shader_resources/cubemapShader.frag");
     Shader sunShader("shader_resources/sunShader.vert", "shader_resources/sunShader.frag");
     Shader depthMapShader("shader_resources/depthMapShader.vert", "shader_resources/depthMapShader.frag", "shader_resources/depthMapShader.geom");
-    Shader hdrShader("shader_resources/hdrShader.vert", "shader_resources/hdrShader.frag");
-    Shader blurShader("shader_resources/blurShader.vert", "shader_resources/blurShader.frag");
+    Shader hdrShader("shader_resources/quadShader.vert", "shader_resources/hdrShader.frag");
+    Shader blurShader("shader_resources/quadShader.vert", "shader_resources/blurShader.frag");
 
     Game::perspective = glm::perspective(glm::radians(Game::camera.fov), (float)window.screenWidth / window.screenHeight, ZNEAR, ZFAR);
 
@@ -199,6 +199,15 @@ int main(void) {
     waterColor /= 255.0f;
 
     Game::CreateChunkGenWorkers();
+
+    hdrShader.Use();
+    hdrShader.SetTextureBinding("hdrBuffer", 0);
+    hdrShader.SetTextureBinding("bloomBlur", 1);
+
+    vertexPullShader.Use();
+    vertexPullShader.SetTextureBinding("tex", 0);
+    vertexPullShader.SetTextureBinding("shadowMap", 1);
+    vertexPullShader.SetTextureBinding("texNormal", 2);
 
     while (!window.ShouldClose()) {
         Game::UploadChunkDataToGPU();
@@ -424,10 +433,6 @@ int main(void) {
 
         vertexPullShader.SetFloat("normalStrength", normalStrength);
 
-        vertexPullShader.SetInt("tex", 0);
-        vertexPullShader.SetInt("shadowMap", 1);
-        vertexPullShader.SetInt("texNormal", 2);
-
         vertexPullShader.SetBool("fog", fog);
         vertexPullShader.SetBool("shadows", drawShadows);
         vertexPullShader.SetBool("normalMapping", normalMapping);
@@ -465,8 +470,6 @@ int main(void) {
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         hdrShader.Use();
-        hdrShader.SetInt("hdrBuffer", 0);
-        hdrShader.SetInt("bloomBlur", 1);
         hdrShader.SetBool("bloom", bloom);
         hdrShader.SetBool("hdr", hdr);
         hdrShader.SetFloat("exposure", exposure);

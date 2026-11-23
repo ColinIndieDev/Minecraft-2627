@@ -32,8 +32,7 @@ namespace HDR {
         glNamedFramebufferRenderbuffer(_hdrFbo, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, _rboDepth);
 
         glBindFramebuffer(GL_FRAMEBUFFER, _hdrFbo);
-        uint32_t attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
-        glDrawBuffers(2, attachments);
+        glDrawBuffers(2, (uint32_t[]){ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 });
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         if (glCheckNamedFramebufferStatus(_hdrFbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
@@ -58,8 +57,7 @@ namespace HDR {
         glNamedFramebufferRenderbuffer(_msaaHdrFbo, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, _msaaRboDepth);
 
         glBindFramebuffer(GL_FRAMEBUFFER, _msaaHdrFbo);
-        uint32_t attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
-        glDrawBuffers(2, attachments);
+        glDrawBuffers(2, (uint32_t[]){ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 });
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         if (glCheckNamedFramebufferStatus(_msaaHdrFbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {

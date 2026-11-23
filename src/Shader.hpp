@@ -18,4 +18,5 @@ struct Shader {
     void SetInt    (const std::string &name, int i)                   const;
     void SetFloat  (const std::string &name, float i)                 const;
     void SetBool   (const std::string &name, bool i)                  const;
+    void SetTextureBinding(const std::string &name, uint32_t i)       const;
 };
