@@ -107,7 +107,7 @@ namespace DirectionalShadow {
         GetLightSpaceMatrices(matrices, shadowCascadeLevels, projection, view, lightDir, near, far, aspect, fov);
         glBindBuffer(GL_UNIFORM_BUFFER, _matricesUBO);
         for (int i = 0; i < matrices.size(); ++i) {
-            glBufferSubData(GL_UNIFORM_BUFFER, i * sizeof(glm::mat4), sizeof(glm::mat4), &matrices[i]);
+            glBufferSubData(GL_UNIFORM_BUFFER, i * sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(matrices[i]));
         }
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
     }

@@ -1,3 +1,4 @@
+#include "Godrays.hpp"
 #include <string>
 #include <unistd.h>
 #include <pthread.h>
@@ -38,6 +39,7 @@ void FramebufferSizeCallback(GLFWwindow *window, int width, int height) {
     Game::perspective = glm::perspective(glm::radians(Game::camera.fov), (float)width / height, ZNEAR, ZFAR);
     HDR::Resize(width, height);
     Bloom::Resize(width, height);
+    Godrays::Resize(width, height);
 
     glViewport(0, 0, width, height);
 }
@@ -124,19 +126,23 @@ int main(void) {
 #pragma endregion
 
 #pragma region Shader Creation
-    Shader vertexPullShader("shader_resources/vertexPullShader.vert",
-                            "shader_resources/lightingShader.frag");
-    Shader cubemapShader   ("shader_resources/cubemap/cubemapShader.vert",
-                            "shader_resources/cubemap/cubemapShader.frag");
-    Shader sunShader       ("shader_resources/sun/sunShader.vert",
-                            "shader_resources/sun/sunShader.frag");
-    Shader depthMapShader  ("shader_resources/depthmap/depthMapShader.vert",   
-                            "shader_resources/depthmap/depthMapShader.frag", 
-                            "shader_resources/depthmap/depthMapShader.geom");
-    Shader hdrShader       ("shader_resources/pp/quadShader.vert",
-                            "shader_resources/pp/hdrShader.frag");
-    Shader blurShader      ("shader_resources/pp/quadShader.vert",       
-                            "shader_resources/pp/blurShader.frag");
+    Shader vertexPullShader  ("shader_resources/vertexPullShader.vert",
+                              "shader_resources/lightingShader.frag");
+    Shader cubemapShader     ("shader_resources/cubemap/cubemapShader.vert",
+                              "shader_resources/cubemap/cubemapShader.frag");
+    Shader sunShader         ("shader_resources/sun/sunShader.vert",
+                              "shader_resources/sun/sunShader.frag");
+    Shader depthMapShader    ("shader_resources/depthmap/depthMapShader.vert",   
+                              "shader_resources/depthmap/depthMapShader.frag", 
+                              "shader_resources/depthmap/depthMapShader.geom");
+    Shader hdrShader         ("shader_resources/pp/quadShader.vert",
+                              "shader_resources/pp/hdrShader.frag");
+    Shader blurShader        ("shader_resources/pp/quadShader.vert",       
+                              "shader_resources/pp/blurShader.frag");
+    Shader occlusionShader   ("shader_resources/occlusionShader.vert",       
+                              "shader_resources/occlusionShader.frag");
+    Shader occlusionSunShader("shader_resources/sun/sunShader.vert",       
+                              "shader_resources/sun/occlusionSunShader.frag");
 #pragma endregion
 
     Game::perspective = glm::perspective(glm::radians(Game::camera.fov), (float)window.screenWidth / window.screenHeight, ZNEAR, ZFAR);
@@ -160,6 +166,13 @@ int main(void) {
     bool bloom = false;
     int totalBlurAmount = 10;
     float bloomIntensity = 1.0f;
+
+    bool godRays = false;
+    int samples = 100;
+    float decay = 0.96f;
+    float density = 0.9f;
+    float weight = 0.5f;
+    float godRayExposure = 0.3f;
 
     glm::vec3 dirLightDirection = glm::vec3(-0.2f, -0.3f, -0.5f);
     glm::vec3 dirLightAmbient = glm::vec3(0.1f);
@@ -199,6 +212,7 @@ int main(void) {
     DirectionalShadow::Init(shadowResolution, shadowCascadeLevels.size() + 1);
     HDR::Init(window.screenWidth, window.screenHeight);
     Bloom::Init(window.screenWidth, window.screenHeight);
+    Godrays::Init(window.screenWidth, window.screenHeight);
 
     uint32_t textureArray = GetTextureArray();
     uint32_t textureArrayNormals = GetTextureArrayNormals();
@@ -211,11 +225,14 @@ int main(void) {
     hdrShader.Use();
     hdrShader.SetTextureBinding("hdrBuffer", 0);
     hdrShader.SetTextureBinding("bloomBlur", 1);
+    hdrShader.SetTextureBinding("occlusionBuffer", 2);
 
     vertexPullShader.Use();
     vertexPullShader.SetTextureBinding("tex", 0);
     vertexPullShader.SetTextureBinding("shadowMap", 1);
     vertexPullShader.SetTextureBinding("texNormal", 2);
+
+    occlusionShader.SetTextureBinding("tex", 0);
 #pragma endregion
 
     while (!window.ShouldClose()) {
@@ -347,7 +364,7 @@ int main(void) {
             ImGui::PopFont();
 
             ImGui::Checkbox("Enable##0", &hdr);
-            ImGui::SliderFloat("Exposure", &exposure, 0.0f, 10.0f);
+            ImGui::SliderFloat("Exposure##0", &exposure, 0.0f, 10.0f);
 
             ImGui::PushFont(fontBig);
             ImGui::Text("Bloom");
@@ -356,6 +373,17 @@ int main(void) {
             ImGui::Checkbox("Enable##1", &bloom);
             ImGui::SliderFloat("Intensity", &bloomIntensity, 0.0f, 3.0f);
             ImGui::SliderInt("Blur Amount", &totalBlurAmount, 1, 100);
+
+            ImGui::PushFont(fontBig);
+            ImGui::Text("Godrays");
+            ImGui::PopFont();
+
+            ImGui::Checkbox("Enable##2", &godRays);
+            ImGui::SliderInt("Samples", &samples, 10, 1000);
+            ImGui::SliderFloat("Decay", &decay, 0.0f, 2.0f);
+            ImGui::SliderFloat("Density", &density, 0.0f, 2.0f);
+            ImGui::SliderFloat("Weight", &weight, 0.0f, 2.0f);
+            ImGui::SliderFloat("Exposure##1", &godRayExposure, 0.0f, 2.0f);
 
             ImGui::PopFont();
         }
@@ -376,12 +404,35 @@ int main(void) {
         ImGui::Render();
 #pragma endregion
 
-        window.Clear(glm::vec4(0, 0, 0, 255));
-
         Game::HandleInput(window);
 
         std::vector<Chunk *> chunksSorted;
         Game::GetVisibleChunks(chunksSorted, frustum);
+
+        window.Clear(glm::vec4(0, 0, 0, 255));
+
+        if (godRays) {
+            Godrays::BindOcclusionFramebuffer();
+            occlusionShader.Use();
+            occlusionShader.SetMatrix4("projection", Game::perspective);
+            occlusionShader.SetMatrix4("view", Game::camera.GetViewMatrix());
+            glBindTextureUnit(0, textureArray);
+
+            for (auto &chunk : chunksSorted) {
+                chunk->Render(occlusionShader, Game::camera.pos);
+            }
+
+            for (auto &chunk : chunksSorted) {
+                chunk->RenderTransparent(occlusionShader, Game::camera.pos);
+            }
+
+            occlusionSunShader.Use();
+
+            Sun::Draw(occlusionSunShader, Game::camera, Game::perspective, dirLightDirection);
+            
+            Godrays::UnbindOcclusionFramebuffer();
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        }
 
 #pragma region Shadow Rendering
         glm::mat4 lightSpaceMatrix;
@@ -489,9 +540,25 @@ int main(void) {
         hdrShader.SetBool("hdr", hdr);
         hdrShader.SetFloat("exposure", exposure);
         hdrShader.SetFloat("bloomIntensity", bloomIntensity);
+        // God ray stuff
+        hdrShader.SetBool("godRays", godRays);
+        hdrShader.SetInt("samples", samples);
+        hdrShader.SetFloat("decay", decay);
+        hdrShader.SetFloat("density", density);
+        hdrShader.SetFloat("weight", weight);
+        hdrShader.SetFloat("godRayExposure", godRayExposure);
+
+        hdrShader.SetVector3("cameraPos", Game::camera.pos);
+        hdrShader.SetVector3("lightDirection", dirLightDirection);
+        hdrShader.SetMatrix4("projection", Game::perspective);
+        hdrShader.SetMatrix4("view", Game::camera.GetViewMatrix());
+
         glBindTextureUnit(0, HDR::_colorBuffers[0]);
         if (bloom) {
             glBindTextureUnit(1, Bloom::_pingPongColorBuffers[!horizontal]);
+        }
+        if (godRays) {
+            glBindTextureUnit(2, Godrays::_occlusionColorBuffer);
         }
 #pragma endregion
 
