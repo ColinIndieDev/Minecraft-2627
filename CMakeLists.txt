@@ -73,6 +73,22 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(imgui)
 
+# Assimp
+FetchContent_Declare(
+    assimp
+    GIT_REPOSITORY https://github.com/assimp/assimp.git
+    GIT_TAG master
+)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(ASSIMP_INSTALL OFF CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_ZLIB ON CACHE BOOL "" FORCE)
+
+# Disable Minizip
+set(ASSIMP_BUILD_MINIZIP OFF CACHE BOOL "" FORCE)
+
+FetchContent_MakeAvailable(assimp)
+
 # GLAD
 add_subdirectory(external/glad)
 
@@ -81,8 +97,21 @@ add_subdirectory(external/glad)
 add_executable(${CMAKE_PROJECT_NAME}
     src/main.cpp
 
-    src/Shader.cpp
-    src/Cubemap.cpp
+    src/engine/Bloom.cpp
+    src/engine/Camera3D.cpp
+    src/engine/Cubemap.cpp
+    src/engine/Frustum.cpp
+    src/engine/GLUtil.cpp
+    src/engine/Godrays.cpp
+    src/engine/HDR.cpp
+    src/engine/HeapTrack.cpp
+    # Model
+    src/engine/Shader.cpp
+    # Shadow
+    # StackTracker
+    # Sun
+    # Window
+
     src/Chunk.cpp
 )
 
@@ -111,4 +140,5 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
     glfw 
     OpenGL::GL
     imgui
+    assimp
 )

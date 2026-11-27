@@ -105,11 +105,11 @@ namespace DirectionalShadow {
                                         float near, float far, float aspect, float fov) {
         std::vector<glm::mat4> matrices;
         GetLightSpaceMatrices(matrices, shadowCascadeLevels, projection, view, lightDir, near, far, aspect, fov);
-        glBindBuffer(GL_UNIFORM_BUFFER, _matricesUBO);
-        for (int i = 0; i < matrices.size(); ++i) {
-            glBufferSubData(GL_UNIFORM_BUFFER, i * sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(matrices[i]));
+        if (matrices.size() > 16) {
+            fprintf(stderr, "There are %zu light space matrices (only 16 allowed)\n", matrices.size());
+            exit(-1);
         }
-        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+        glNamedBufferSubData(_matricesUBO, 0, matrices.size() * sizeof(glm::mat4), matrices.data());
     }
 
     static inline void Destroy() {

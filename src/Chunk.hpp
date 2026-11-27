@@ -6,7 +6,7 @@
 
 #include <glm/glm.hpp>
 
-#include "Shader.hpp"
+#include "engine/Shader.hpp"
 
 enum class ChunkGenState : uint8_t {
     TerrainGenerated = 0,

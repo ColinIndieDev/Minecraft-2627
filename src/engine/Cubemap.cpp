@@ -66,17 +66,18 @@ Cubemap::Cubemap(std::string paths[6]) {
     };
 
     glCreateVertexArrays(1, &vao);
-    glCreateBuffers(1, &vbo);
+    glCreateBuffers     (1, &vbo);
+
     glVertexArrayVertexBuffer(vao, 0, vbo, 0, 3 * sizeof(float));
-    glNamedBufferStorage(vbo, sizeof(vertices), &vertices, 0);
-    glEnableVertexArrayAttrib(vao, 0);
-    glVertexArrayAttribFormat(vao, 0, 3, GL_FLOAT, GL_FALSE, 0);
+    glNamedBufferStorage     (vbo, sizeof(vertices), &vertices, 0);
+
+    glEnableVertexArrayAttrib (vao, 0);
+    glVertexArrayAttribFormat (vao, 0, 3, GL_FLOAT, GL_FALSE, 0);
     glVertexArrayAttribBinding(vao, 0, 0);
 
     glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &texture);
 
-    int width, height, channels;
-
+    int width = 0, height = 0, channels = 0;
     {
         uint8_t *data = stbi_load(paths[0].c_str(), &width, &height, &channels, STBI_rgb_alpha);
         if (!data) {
@@ -84,9 +85,11 @@ Cubemap::Cubemap(std::string paths[6]) {
             stbi_image_free(data);
             exit(-1);
         }
-        glTextureStorage2D(texture, 1, GL_SRGB8_ALPHA8, width, height);
         FlipImageHorizontal(data, width, height, channels);
+
+        glTextureStorage2D (texture, 1, GL_SRGB8_ALPHA8, width, height);
         glTextureSubImage3D(texture, 0, 0, 0, 0, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, data);
+
         stbi_image_free(data);
     }
 
@@ -98,9 +101,12 @@ Cubemap::Cubemap(std::string paths[6]) {
             exit(-1);
         }
         FlipImageHorizontal(data, width, height, channels);
+
         glTextureSubImage3D(texture, 0, 0, 0, i, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, data);
+
         stbi_image_free(data);
     }
+
     glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);

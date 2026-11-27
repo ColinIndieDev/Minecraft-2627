@@ -15,9 +15,7 @@ struct Camera3D {
     float sensitivity = 0.1f;
     bool firstMouse = true;
 
-    Camera3D(const glm::vec3 &pos, float fov, float sensitivity) : pos(pos), fov(fov), sensitivity(sensitivity) {}
+    Camera3D(const glm::vec3 &pos, float fov, float sensitivity);
 
-    glm::mat4 GetViewMatrix() {
-        return glm::lookAt(pos, pos + front, up);
-    }
+    glm::mat4 GetViewMatrix();
 };

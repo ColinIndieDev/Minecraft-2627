@@ -1,13 +1,13 @@
 #include "Chunk.hpp"
-#include "BlockType.hpp"
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
 #include <glad/glad.h>
 #include <FastNoiseLite.h>
 
-#include "GLUtil.hpp"
+#include "engine/GLUtil.hpp"
 #include "BlockTexture.hpp"
+#include "BlockType.hpp"
 
 // Only in order for the shader to understand which face we want to draw / vertex pull
 enum class FaceDirection : uint8_t {

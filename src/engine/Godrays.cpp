@@ -1,15 +1,9 @@
-#pragma once
-
-#include <cstdint>
-
-#include <glad/glad.h>
+#include "Godrays.hpp"
 
 #include "GLUtil.hpp"
 
 namespace Godrays {
-    static inline uint32_t _occlusionFbo = 0, _occlusionColorBuffer = 0, _occlusionRboDepth = 0;
-
-    static inline void CreateFramebuffer(uint32_t screenWidth, uint32_t screenHeight) {
+    void CreateFramebuffer(uint32_t screenWidth, uint32_t screenHeight) {
         glCreateFramebuffers(1, &_occlusionFbo);
 
         glCreateTextures(GL_TEXTURE_2D, 1, &_occlusionColorBuffer);
@@ -30,11 +24,11 @@ namespace Godrays {
         }
     }
 
-    static inline void Init(uint32_t screenWidth, uint32_t screenHeight) {
+    void Init(uint32_t screenWidth, uint32_t screenHeight) {
         CreateFramebuffer(screenWidth, screenHeight); 
     }
 
-    static inline void Resize(uint32_t screenWidth, uint32_t screenHeight) {
+    void Resize(uint32_t screenWidth, uint32_t screenHeight) {
         GLUtil::DestroyFramebuffer(_occlusionFbo);
         GLUtil::DestroyRenderbuffer(_occlusionRboDepth);
         GLUtil::DestroyTexture(_occlusionColorBuffer);
@@ -42,12 +36,12 @@ namespace Godrays {
         CreateFramebuffer(screenWidth, screenHeight); 
     }
 
-    static inline void BindOcclusionFramebuffer() {
+    void BindOcclusionFramebuffer() {
         glBindFramebuffer(GL_FRAMEBUFFER, _occlusionFbo);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 
-    static inline void UnbindOcclusionFramebuffer() {
+    void UnbindOcclusionFramebuffer() {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 }

@@ -1,4 +1,3 @@
-#include "Godrays.hpp"
 #include <string>
 #include <unistd.h>
 #include <pthread.h>
@@ -10,26 +9,28 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
-#include "Shader.hpp"
-#include "Window.hpp"
-#include "Cubemap.hpp"
+#include "engine/Shader.hpp"
+#include "engine/Window.hpp"
+#include "engine/Cubemap.hpp"
+#include "engine/Frustum.hpp"
+#include "engine/Sun.hpp"
+#include "engine/Shadow.hpp"
+#include "engine/HDR.hpp"
+#include "engine/Bloom.hpp"
+#include "engine/Godrays.hpp"
+#include "engine/Model.hpp"
+#include "engine/HeapTrack.hpp"
+#include "engine/StackTracker.hpp"
+
 #include "Chunk.hpp"
-#include "Frustum.hpp"
 #include "BlockTexture.hpp"
-#include "Sun.hpp"
-#include "Shadow.hpp"
-#include "HDR.hpp"
-#include "Bloom.hpp"
-
-#include "HeapTrack.hpp"
-#include "StackTracker.hpp"
-
 #include "Game.hpp"
 
 #define ZNEAR 0.01f
 #define ZFAR 1'000.0f
 
 bool mouseLocked = true;
+bool displayMenu = false;
 
 #pragma region GLFW Callbacks
 void FramebufferSizeCallback(GLFWwindow *window, int width, int height) {
@@ -89,6 +90,9 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             glfwSetCursorPos(window, width * 0.5f, height * 0.5f);
         }
     }
+    if (key == GLFW_KEY_H && action == GLFW_PRESS) {
+        displayMenu = !displayMenu;
+    }
 }
 
 #pragma endregion
@@ -143,6 +147,8 @@ int main(void) {
                               "shader_resources/occlusionShader.frag");
     Shader occlusionSunShader("shader_resources/sun/sunShader.vert",       
                               "shader_resources/sun/occlusionSunShader.frag");
+    Shader modelShader       ("shader_resources/models/modelShader.vert",
+                              "shader_resources/models/modelShader.frag");
 #pragma endregion
 
     Game::perspective = glm::perspective(glm::radians(Game::camera.fov), (float)window.screenWidth / window.screenHeight, ZNEAR, ZFAR);
@@ -217,6 +223,9 @@ int main(void) {
     uint32_t textureArray = GetTextureArray();
     uint32_t textureArrayNormals = GetTextureArrayNormals();
 
+    // Temporary
+    Model model("assets/jeffrey_epstein/scene.gltf");
+
     if (msaa) glEnable(GL_MULTISAMPLE);
 
     Game::CreateChunkGenWorkers();
@@ -233,6 +242,8 @@ int main(void) {
     vertexPullShader.SetTextureBinding("texNormal", 2);
 
     occlusionShader.SetTextureBinding("tex", 0);
+
+    modelShader.SetTextureBinding("texture_diffuse1", 0);
 #pragma endregion
 
     while (!window.ShouldClose()) {
@@ -247,160 +258,161 @@ int main(void) {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        if (ImGui::Begin("General")) {
-            ImGui::PushFont(font);
+        if (displayMenu) {
+            if (ImGui::Begin("General")) {
+                ImGui::PushFont(font);
 
-            ImGui::PushFont(fontBig);
-            ImGui::Text("Performance");
-            ImGui::PopFont();
-            ImGui::Text("FPS: %d", window.GetFPS());
-            ImGui::Text("Last frame: %.1fms", window.GetDeltaTime() * 1000.0f);
-            ImGui::PushFont(fontBig);
-            ImGui::Text("Memory");
-            ImGui::PopFont();
-            ImGui::Text("Heap memory (current): %zu MiB", HeapTrack::cur / 1024 / 1024);
-            ImGui::Text("Heap memory (peak): %zu MiB", HeapTrack::peak / 1024 / 1024);
-            ImGui::Text("Stack memory (current): %.3f MiB", StackTracker::GetStackUsage() / 1024.0 / 1024.0);
+                ImGui::PushFont(fontBig);
+                ImGui::Text("Performance");
+                ImGui::PopFont();
+                ImGui::Text("FPS: %d", window.GetFPS());
+                ImGui::Text("Last frame: %.1fms", window.GetDeltaTime() * 1000.0f);
+                ImGui::PushFont(fontBig);
+                ImGui::Text("Memory");
+                ImGui::PopFont();
+                ImGui::Text("Heap memory (current): %zu MiB", HeapTrack::cur / 1024 / 1024);
+                ImGui::Text("Heap memory (peak): %zu MiB", HeapTrack::peak / 1024 / 1024);
+                ImGui::Text("Stack memory (current): %.3f MiB", StackTracker::GetStackUsage() / 1024.0 / 1024.0);
 
-            pthread_mutex_lock(&Game::workerMutex);
-            /* For comprehension the possible chunk states
-            TerrainGenerated = 0,
-            MeshQueued,
-            MeshBuilding,
-            MeshReadyForUpload,
-            MeshReady,
-            MeshDirty
-            */
-            uint64_t chunkStats[6] = {0};
-            for (auto &[pos, chunk] : Game::chunks) {
-                chunkStats[(uint32_t)chunk.genState]++;
-            }
-
-            ImGui::PushFont(fontBig);
-            ImGui::Text("Chunks");
-            ImGui::PopFont();
-            ImGui::Text("Terrain generated: %zu", chunkStats[0]);
-            ImGui::Text("Queued: %zu", chunkStats[1]);
-            ImGui::Text("Building: %zu", chunkStats[2]);
-            ImGui::Text("Ready to upload: %zu", chunkStats[3]);
-            ImGui::Text("Dirty: %zu", chunkStats[5]);
-            ImGui::Text("Ready: %zu", chunkStats[4]);
-            ImGui::Text("Total: %zu", Game::chunks.size());
-            pthread_mutex_unlock(&Game::workerMutex);
-
-            ImGui::PushFont(fontBig);
-            ImGui::Text("Shadows");
-            ImGui::PopFont();
-            ImGui::Checkbox("Enable##1", &drawShadows);
-            ImGui::SliderInt("Resolution", (int *)&shadowResolution, 128, 16384);
-            if (shadowResolution != lastShadowResolution) {
-                DirectionalShadow::Resize(shadowResolution, shadowCascadeLevels.size() + 1);
-                lastShadowResolution = shadowResolution;
-            }
-
-            ImGui::PushFont(fontBig);
-            ImGui::Text("Render Distance");
-            ImGui::PopFont();
-            ImGui::SliderInt("Chunks##1", &Game::viewDistance, 2, 256);
-
-            ImGui::PushFont(fontBig);
-            ImGui::Text("Fog");
-            ImGui::PopFont();
-            ImGui::Checkbox("Enable##2", &fog);
-            ImGui::Text("Fog Start");
-            ImGui::SliderInt("Chunks##2", &fogStartChunk, 0, Game::viewDistance);
-            if (fogStartChunk != lastFogStartChunk) {
-                lastFogStartChunk = fogStartChunk;
-            }
-            ImGui::Text("Fog End");
-            ImGui::SliderInt("Chunks##3", &fogEndChunk, fogStartChunk, Game::viewDistance);
-            if (fogEndChunk != lastFogEndChunk) {
-                lastFogEndChunk = fogEndChunk;
-            }
-
-            ImGui::PushFont(fontBig);
-            ImGui::Text("Normal Mapping");
-            ImGui::PopFont();
-            ImGui::Checkbox("Enable##3", &normalMapping);
-            ImGui::SliderFloat("Normal Strength", &normalStrength, 0.0f, 2.0f);
-
-            ImGui::PushFont(fontBig);
-            ImGui::Text("Anti Aliasing");
-            ImGui::PopFont();
-            ImGui::Checkbox("MSAA", &msaa);
-            if (msaa != prevMsaa) {
-                if (msaa) {
-                    glEnable(GL_MULTISAMPLE);
-                } else {
-                    glDisable(GL_MULTISAMPLE);
+                pthread_mutex_lock(&Game::workerMutex);
+                /* For comprehension the possible chunk states
+                TerrainGenerated = 0,
+                MeshQueued,
+                MeshBuilding,
+                MeshReadyForUpload,
+                MeshReady,
+                MeshDirty
+                */
+                uint64_t chunkStats[6] = {0};
+                for (auto &[pos, chunk] : Game::chunks) {
+                    chunkStats[(uint32_t)chunk.genState]++;
                 }
-                prevMsaa = msaa;
+
+                ImGui::PushFont(fontBig);
+                ImGui::Text("Chunks");
+                ImGui::PopFont();
+                ImGui::Text("Terrain generated: %zu", chunkStats[0]);
+                ImGui::Text("Queued: %zu", chunkStats[1]);
+                ImGui::Text("Building: %zu", chunkStats[2]);
+                ImGui::Text("Ready to upload: %zu", chunkStats[3]);
+                ImGui::Text("Dirty: %zu", chunkStats[5]);
+                ImGui::Text("Ready: %zu", chunkStats[4]);
+                ImGui::Text("Total: %zu", Game::chunks.size());
+                pthread_mutex_unlock(&Game::workerMutex);
+
+                ImGui::PushFont(fontBig);
+                ImGui::Text("Shadows");
+                ImGui::PopFont();
+                ImGui::Checkbox("Enable##1", &drawShadows);
+                ImGui::SliderInt("Resolution", (int *)&shadowResolution, 128, 16384);
+                if (shadowResolution != lastShadowResolution) {
+                    DirectionalShadow::Resize(shadowResolution, shadowCascadeLevels.size() + 1);
+                    lastShadowResolution = shadowResolution;
+                }
+
+                ImGui::PushFont(fontBig);
+                ImGui::Text("Render Distance");
+                ImGui::PopFont();
+                ImGui::SliderInt("Chunks##1", &Game::viewDistance, 2, 256);
+
+                ImGui::PushFont(fontBig);
+                ImGui::Text("Fog");
+                ImGui::PopFont();
+                ImGui::Checkbox("Enable##2", &fog);
+                ImGui::Text("Fog Start");
+                ImGui::SliderInt("Chunks##2", &fogStartChunk, 0, Game::viewDistance);
+                if (fogStartChunk != lastFogStartChunk) {
+                    lastFogStartChunk = fogStartChunk;
+                }
+                ImGui::Text("Fog End");
+                ImGui::SliderInt("Chunks##3", &fogEndChunk, fogStartChunk, Game::viewDistance);
+                if (fogEndChunk != lastFogEndChunk) {
+                    lastFogEndChunk = fogEndChunk;
+                }
+
+                ImGui::PushFont(fontBig);
+                ImGui::Text("Normal Mapping");
+                ImGui::PopFont();
+                ImGui::Checkbox("Enable##3", &normalMapping);
+                ImGui::SliderFloat("Normal Strength", &normalStrength, 0.0f, 2.0f);
+
+                ImGui::PushFont(fontBig);
+                ImGui::Text("Anti Aliasing");
+                ImGui::PopFont();
+                ImGui::Checkbox("MSAA", &msaa);
+                if (msaa != prevMsaa) {
+                    if (msaa) {
+                        glEnable(GL_MULTISAMPLE);
+                    } else {
+                        glDisable(GL_MULTISAMPLE);
+                    }
+                    prevMsaa = msaa;
+                }
+
+                ImGui::PopFont();
             }
+            ImGui::End();
 
-            ImGui::PopFont();
+            if (ImGui::Begin("Lighting")) {
+                ImGui::PushFont(font);
+
+                ImGui::PushFont(fontBig);
+                ImGui::Text("Directional Light");
+                ImGui::PopFont();
+
+                ImGui::SliderFloat3("Direction", (float *)&dirLightDirection, -1.0f, 1.0f);
+                ImGui::ColorEdit3("Ambient Color", (float *)&dirLightAmbient, ImGuiColorEditFlags_DisplayRGB);
+                ImGui::ColorEdit3("Diffuse Color", (float *)&dirLightDiffuse, ImGuiColorEditFlags_DisplayRGB);
+                ImGui::ColorEdit3("Specular Color", (float *)&dirLightSpecular, ImGuiColorEditFlags_DisplayRGB);
+
+                ImGui::PushFont(fontBig);
+                ImGui::Text("Sun");
+                ImGui::PopFont();
+
+                ImGui::ColorEdit3("Sun Color", (float *)&sunColor, ImGuiColorEditFlags_DisplayRGB);
+
+                ImGui::PushFont(fontBig);
+                ImGui::Text("HDR");
+                ImGui::PopFont();
+
+                ImGui::Checkbox("Enable##0", &hdr);
+                ImGui::SliderFloat("Exposure##0", &exposure, 0.0f, 10.0f);
+
+                ImGui::PushFont(fontBig);
+                ImGui::Text("Bloom");
+                ImGui::PopFont();
+
+                ImGui::Checkbox("Enable##1", &bloom);
+                ImGui::SliderFloat("Intensity", &bloomIntensity, 0.0f, 3.0f);
+                ImGui::SliderInt("Blur Amount", &totalBlurAmount, 1, 100);
+
+                ImGui::PushFont(fontBig);
+                ImGui::Text("Godrays");
+                ImGui::PopFont();
+
+                ImGui::Checkbox("Enable##2", &godRays);
+                ImGui::SliderInt("Samples", &samples, 10, 1000);
+                ImGui::SliderFloat("Decay", &decay, 0.0f, 2.0f);
+                ImGui::SliderFloat("Density", &density, 0.0f, 2.0f);
+                ImGui::SliderFloat("Weight", &weight, 0.0f, 2.0f);
+                ImGui::SliderFloat("Exposure##1", &godRayExposure, 0.0f, 2.0f);
+
+                ImGui::PopFont();
+            }
+            ImGui::End();
+
+            if (ImGui::Begin("Colors")) {
+                ImGui::PushFont(font);
+
+                ImGui::ColorEdit4("Water Color", (float *)&waterColor, ImGuiColorEditFlags_DisplayRGB);
+                ImGui::ColorEdit4("Leaves Color", (float *)&leavesColor, ImGuiColorEditFlags_DisplayRGB);
+                ImGui::ColorEdit4("Grass Color", (float *)&grassColor, ImGuiColorEditFlags_DisplayRGB);
+                ImGui::ColorEdit4("Skybox Tint", (float *)&skyboxTint, ImGuiColorEditFlags_DisplayRGB);
+
+                ImGui::PopFont();
+            }
+            ImGui::End();
         }
-        ImGui::End();
-
-        if (ImGui::Begin("Lighting")) {
-            ImGui::PushFont(font);
-
-            ImGui::PushFont(fontBig);
-            ImGui::Text("Directional Light");
-            ImGui::PopFont();
-
-            ImGui::SliderFloat3("Direction", (float *)&dirLightDirection, -1.0f, 1.0f);
-            ImGui::ColorEdit3("Ambient Color", (float *)&dirLightAmbient, ImGuiColorEditFlags_DisplayRGB);
-            ImGui::ColorEdit3("Diffuse Color", (float *)&dirLightDiffuse, ImGuiColorEditFlags_DisplayRGB);
-            ImGui::ColorEdit3("Specular Color", (float *)&dirLightSpecular, ImGuiColorEditFlags_DisplayRGB);
-
-            ImGui::PushFont(fontBig);
-            ImGui::Text("Sun");
-            ImGui::PopFont();
-
-            ImGui::ColorEdit3("Sun Color", (float *)&sunColor, ImGuiColorEditFlags_DisplayRGB);
-
-            ImGui::PushFont(fontBig);
-            ImGui::Text("HDR");
-            ImGui::PopFont();
-
-            ImGui::Checkbox("Enable##0", &hdr);
-            ImGui::SliderFloat("Exposure##0", &exposure, 0.0f, 10.0f);
-
-            ImGui::PushFont(fontBig);
-            ImGui::Text("Bloom");
-            ImGui::PopFont();
-
-            ImGui::Checkbox("Enable##1", &bloom);
-            ImGui::SliderFloat("Intensity", &bloomIntensity, 0.0f, 3.0f);
-            ImGui::SliderInt("Blur Amount", &totalBlurAmount, 1, 100);
-
-            ImGui::PushFont(fontBig);
-            ImGui::Text("Godrays");
-            ImGui::PopFont();
-
-            ImGui::Checkbox("Enable##2", &godRays);
-            ImGui::SliderInt("Samples", &samples, 10, 1000);
-            ImGui::SliderFloat("Decay", &decay, 0.0f, 2.0f);
-            ImGui::SliderFloat("Density", &density, 0.0f, 2.0f);
-            ImGui::SliderFloat("Weight", &weight, 0.0f, 2.0f);
-            ImGui::SliderFloat("Exposure##1", &godRayExposure, 0.0f, 2.0f);
-
-            ImGui::PopFont();
-        }
-        ImGui::End();
-
-        if (ImGui::Begin("Colors")) {
-            ImGui::PushFont(font);
-
-            ImGui::ColorEdit4("Water Color", (float *)&waterColor, ImGuiColorEditFlags_DisplayRGB);
-            ImGui::ColorEdit4("Leaves Color", (float *)&leavesColor, ImGuiColorEditFlags_DisplayRGB);
-            ImGui::ColorEdit4("Grass Color", (float *)&grassColor, ImGuiColorEditFlags_DisplayRGB);
-            ImGui::ColorEdit4("Skybox Tint", (float *)&skyboxTint, ImGuiColorEditFlags_DisplayRGB);
-
-            ImGui::PopFont();
-        }
-        ImGui::End();
-
         ImGui::Render();
 #pragma endregion
 
@@ -435,22 +447,8 @@ int main(void) {
         }
 
 #pragma region Shadow Rendering
-        glm::mat4 lightSpaceMatrix;
         if (drawShadows) {
-            float nearPlane = 0.1f, farPlane = 500.0f;
-            glm::mat4 lightProjection = glm::ortho(-150.0f, 150.0f, -150.0f, 150.0f, nearPlane, farPlane);
-
-            glm::vec3 lightDir = glm::normalize(
-                -dirLightDirection
-            );
-            glm::vec3 lightPos = Game::camera.pos - lightDir * 200.0f;
-
-            glm::mat4 lightView = glm::lookAt(lightPos,
-                                              Game::camera.pos,
-                                              glm::vec3(0.0f, 1.0f, 0.0f));
-            lightSpaceMatrix = lightProjection * lightView;
-
-            DirectionalShadow::LoadLightSpaceMatricesToBuffer(shadowCascadeLevels, Game::perspective, Game::camera.GetViewMatrix(), lightDir, 
+            DirectionalShadow::LoadLightSpaceMatricesToBuffer(shadowCascadeLevels, Game::perspective, Game::camera.GetViewMatrix(), glm::normalize(-dirLightDirection), 
                                                              ZNEAR, ZFAR, (float)window.screenWidth / window.screenHeight, Game::camera.fov);
 
             depthMapShader.Use();
@@ -517,6 +515,13 @@ int main(void) {
             chunk->RenderTransparent(vertexPullShader, Game::camera.pos);
         }
 
+        // TODO testing here
+        modelShader.Use();
+        modelShader.SetMatrix4("projection", Game::perspective);
+        modelShader.SetMatrix4("view", Game::camera.GetViewMatrix());
+        modelShader.SetMatrix4("transform", glm::mat4(1.0f));
+        model.Draw(modelShader);
+
         sunShader.Use();
         sunShader.SetVector3("sunColor", sunColor);
         Sun::Draw(sunShader, Game::camera, Game::perspective, dirLightDirection);
@@ -555,7 +560,7 @@ int main(void) {
 
         glBindTextureUnit(0, HDR::_colorBuffers[0]);
         if (bloom) {
-            glBindTextureUnit(1, Bloom::_pingPongColorBuffers[!horizontal]);
+            glBindTextureUnit(1, Bloom::PingPongColorBuffers[!horizontal]);
         }
         if (godRays) {
             glBindTextureUnit(2, Godrays::_occlusionColorBuffer);

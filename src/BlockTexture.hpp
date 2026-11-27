@@ -2,10 +2,10 @@
 
 #include <cstdint>
 
+#include "engine/GLUtil.hpp"
 #include "BlockType.hpp"
-#include "GLUtil.hpp"
 
-enum class BlockTexture : uint8_t {
+enum BlockTexture : uint8_t {
     Grass_Top = 0,
     Grass_Side,
     Dirt,
@@ -45,7 +45,7 @@ inline uint32_t GetTextureArray() {
 }
 
 inline uint32_t GetTextureArrayNormals() {
-    return GLUtil::LoadTextureArrayNoSRGB({
+    return GLUtil::LoadTextureArray({
         .paths = {
             "assets/block_w_normals/grass_block_top_n.png",
             "assets/block_w_normals/grass_block_side_n.png",
@@ -55,8 +55,10 @@ inline uint32_t GetTextureArrayNormals() {
             "assets/block_w_normals/oak_log_top_n.png",
             "assets/block_w_normals/oak_leaves_n.png",
             "assets/block_w_normals/sand_n.png",
+
             // No normals for water for now
             "assets/water_still.png",
+
             "assets/block_w_normals/snow.png",
             "assets/block_w_normals/spruce_log.png",
             "assets/block_w_normals/spruce_log_top.png",
@@ -64,6 +66,7 @@ inline uint32_t GetTextureArrayNormals() {
             "assets/block_w_normals/ice.png",
         }, 
         .filter = GL_NEAREST,
+        .gammaCorrection = false
     });
 }
 

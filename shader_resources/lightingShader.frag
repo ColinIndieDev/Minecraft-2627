@@ -32,7 +32,7 @@ uniform float normalStrength;
 uniform float farPlane;
 uniform mat4 view;
 uniform DirectionalLight directionalLight;
-layout (std140, binding = 0) uniform LightSpaceMatrices {
+layout (std140, binding = 0) uniform LightSpaceMatricesUniform {
     mat4 lightSpaceMatrices[16];
 };
 uniform float cascadePlaneDistances[16];

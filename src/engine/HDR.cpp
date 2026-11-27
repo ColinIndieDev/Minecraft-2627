@@ -1,20 +1,9 @@
-#pragma once
-
-#include <cstdint>
-
-#include <glad/glad.h>
+#include "HDR.hpp"
 
 #include "GLUtil.hpp"
 
 namespace HDR {
-    static inline uint32_t _hdrFbo = 0, _rboDepth = 0; 
-    static inline uint32_t _colorBuffers[2] = {0};
-    static inline uint32_t _msaaHdrFbo = 0, _msaaRboDepth = 0; 
-    static inline uint32_t _msaaColorBuffers[2] = {0};
-    static inline uint32_t _msaaSamples = 4;
-    static inline uint32_t _vao = 0, _vbo = 0;
-
-    static inline void CreateFramebuffer(uint32_t screenWidth, uint32_t screenHeight) {
+    void CreateFramebuffer(uint32_t screenWidth, uint32_t screenHeight) {
         glCreateFramebuffers(1, &_hdrFbo);
 
         glCreateTextures(GL_TEXTURE_2D, 2, _colorBuffers);
@@ -41,7 +30,7 @@ namespace HDR {
         }
     }
 
-    static inline void CreateMSAAFramebuffer(uint32_t screenWidth, uint32_t screenHeight) {
+    void CreateMSAAFramebuffer(uint32_t screenWidth, uint32_t screenHeight) {
         glCreateFramebuffers(1, &_msaaHdrFbo);
 
         glCreateTextures(GL_TEXTURE_2D_MULTISAMPLE, 2, _msaaColorBuffers);
@@ -66,7 +55,7 @@ namespace HDR {
         }
     }
 
-    static inline void Init(uint32_t screenWidth, uint32_t screenHeight) {
+    void Init(uint32_t screenWidth, uint32_t screenHeight) {
         CreateFramebuffer(screenWidth, screenHeight);
         CreateMSAAFramebuffer(screenWidth, screenHeight);
 
@@ -89,7 +78,7 @@ namespace HDR {
         glVertexArrayAttribBinding(_vao, 1, 0);
     }
 
-    static inline void Resize(uint32_t screenWidth, uint32_t screenHeight) {
+    void Resize(uint32_t screenWidth, uint32_t screenHeight) {
         GLUtil::DestroyFramebuffer(_hdrFbo);
         GLUtil::DestroyTexture(_colorBuffers[0]);
         GLUtil::DestroyTexture(_colorBuffers[1]);
@@ -103,7 +92,7 @@ namespace HDR {
         CreateMSAAFramebuffer(screenWidth, screenHeight);
     }
 
-    static inline void Destroy() {
+    void Destroy() {
         GLUtil::DestroyFramebuffer(_hdrFbo);
         GLUtil::DestroyTexture(_colorBuffers[0]);
         GLUtil::DestroyTexture(_colorBuffers[1]);
@@ -117,21 +106,21 @@ namespace HDR {
         GLUtil::DestroyVertexBuffer(_vbo);
     }
 
-    static inline void BindFramebuffer(bool msaa) {
+    void BindFramebuffer(bool msaa) {
         glBindFramebuffer(GL_FRAMEBUFFER, msaa ? _msaaHdrFbo : _hdrFbo);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 
-    static inline void ResolveFramebuffer(uint32_t screenWidth, uint32_t screenHeight) {
+    void ResolveFramebuffer(uint32_t screenWidth, uint32_t screenHeight) {
         // Ofc assuming screen size = framebuffer size
         glBlitNamedFramebuffer(_msaaHdrFbo, _hdrFbo, 0, 0, screenWidth, screenHeight, 0, 0, screenWidth, screenHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
     }
 
-    static inline void UnbindFramebuffer() {
+    void UnbindFramebuffer() {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
-    static inline void DrawScreenQuad() {
+    void DrawScreenQuad() {
         glBindVertexArray(_vao);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
         glBindVertexArray(0);

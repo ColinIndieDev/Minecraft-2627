@@ -9,7 +9,7 @@ flat in int gTexID[];
 out vec2 texCoords;
 flat out int texID;
 
-layout (std140, binding = 0) uniform LightSpaceMatrices {
+layout (std140, binding = 0) uniform LightSpaceMatricesUniform {
     mat4 lightSpaceMatrices[16];
 };
 

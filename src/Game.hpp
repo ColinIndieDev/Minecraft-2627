@@ -5,15 +5,13 @@
 #include <algorithm>
 #include <unordered_map>
 
-#include <GLFW/glfw3.h>
-
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
 
+#include "engine/Frustum.hpp"
+#include "engine/Window.hpp"
+#include "engine/Camera3D.hpp"
 #include "Chunk.hpp"
-#include "Frustum.hpp"
-#include "Window.hpp"
-#include "Camera3D.hpp"
 
 #define NUM_WORKER_THREADS 12
 
