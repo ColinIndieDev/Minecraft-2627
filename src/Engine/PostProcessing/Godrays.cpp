@@ -1,6 +1,6 @@
 #include "Godrays.hpp"
 
-#include "GLUtil.hpp"
+#include <GL/GLUtil.hpp>
 
 namespace Godrays {
     void CreateFramebuffer(uint32_t screenWidth, uint32_t screenHeight) {

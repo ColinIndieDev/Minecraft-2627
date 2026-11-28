@@ -7,6 +7,7 @@
 struct Shader {
     uint32_t id = 0;
 
+    Shader() = default;
     Shader(const std::string &vertPath, const std::string &fragPath);
     Shader(const std::string &vertPath, const std::string &fragPath, const std::string &geomPath);
     void Use() const;

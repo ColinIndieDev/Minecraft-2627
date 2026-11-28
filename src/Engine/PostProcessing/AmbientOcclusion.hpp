@@ -8,8 +8,8 @@
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 
-#include "GLUtil.hpp"
-#include "Shader.hpp"
+#include <GL/GLUtil.hpp>
+#include <Core/Shader.hpp>
 
 namespace AO {
     static inline uint32_t _gBuffer = 0;

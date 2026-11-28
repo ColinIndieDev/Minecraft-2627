@@ -1,5 +1,4 @@
 #include "Cubemap.hpp"
-#include "Camera3D.hpp"
 
 #include <glad/glad.h>
 #include <glm/glm.hpp>
@@ -21,6 +20,8 @@ void FlipImageHorizontal(uint8_t *pixels, int width, int height, int channels) {
 }
 
 Cubemap::Cubemap(std::string paths[6]) {
+    if (paths == NULL) return;
+
     float vertices[108] = {
         -1.0f,  1.0f, -1.0f, 
         -1.0f, -1.0f, -1.0f, 

@@ -4,7 +4,7 @@
 
 #include <glad/glad.h>
 
-#include "Shader.hpp"
+#include <Core/Shader.hpp>
 
 namespace Bloom {
     inline uint32_t PingPongFbo[2] = {0};

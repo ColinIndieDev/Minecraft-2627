@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "engine/GLUtil.hpp"
+#include <GL/GLUtil.hpp>
 #include "BlockType.hpp"
 
 enum BlockTexture : uint8_t {

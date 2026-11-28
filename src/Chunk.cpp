@@ -5,7 +5,8 @@
 #include <glad/glad.h>
 #include <FastNoiseLite.h>
 
-#include "engine/GLUtil.hpp"
+#include <GL/GLUtil.hpp>
+
 #include "BlockTexture.hpp"
 #include "BlockType.hpp"
 

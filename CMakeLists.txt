@@ -97,23 +97,27 @@ add_subdirectory(external/glad)
 add_executable(${CMAKE_PROJECT_NAME}
     src/main.cpp
 
-    src/engine/Bloom.cpp
-    src/engine/Camera3D.cpp
-    src/engine/Cubemap.cpp
-    src/engine/Frustum.cpp
-    src/engine/GLUtil.cpp
-    src/engine/Godrays.cpp
-    src/engine/HDR.cpp
-    src/engine/HeapTrack.cpp
-    # Model
-    src/engine/Shader.cpp
-    # Shadow
-    # StackTracker
-    # Sun
-    # Window
+    src/Engine/Core/Camera3D.cpp
+    src/Engine/Core/Shader.cpp
+    src/Engine/Core/Window.cpp
+    src/Engine/Environment/Cubemap.cpp
+    src/Engine/Environment/Sun.cpp
+    src/Engine/GL/GLUtil.cpp
+    src/Engine/Lighting/Shadow.cpp
+    src/Engine/Objects/Model.cpp
+    src/Engine/Performance/Frustum.cpp
+    src/Engine/Performance/HeapTracker.cpp
+    src/Engine/Performance/StackTracker.cpp
+    src/Engine/PostProcessing/Bloom.cpp
+    src/Engine/PostProcessing/Godrays.cpp
+    src/Engine/PostProcessing/HDR.cpp
 
     src/Chunk.cpp
+    src/Minecraft.cpp
+    src/Config.cpp
 )
+
+target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Engine)
 
 add_library(imgui STATIC
     ${imgui_SOURCE_DIR}/imgui.cpp

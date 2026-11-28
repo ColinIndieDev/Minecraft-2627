@@ -1,13 +1,9 @@
-#pragma once
+#include "StackTracker.hpp"
 
-#include <pthread.h>
-#include <cstddef>
 #include <cstdint>
 
-// Only for Linux!
-
 namespace StackTracker {
-    static inline size_t GetStackUsage() {
+    size_t GetStackUsage() {
         pthread_attr_t attr;
         pthread_getattr_np(pthread_self(), &attr);
 

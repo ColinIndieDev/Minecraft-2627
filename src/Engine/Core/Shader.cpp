@@ -151,5 +151,7 @@ void Shader::SetFloat(const std::string &name, float i) const {
 }
 
 void Shader::SetTextureBinding(const std::string &name, uint32_t texture) const {
+    Use();
     glUniform1i(glGetUniformLocation(id, name.c_str()), texture);
+    glUseProgram(0);
 }

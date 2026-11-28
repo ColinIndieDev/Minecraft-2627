@@ -1,6 +1,6 @@
 #include "HDR.hpp"
 
-#include "GLUtil.hpp"
+#include <GL/GLUtil.hpp>
 
 namespace HDR {
     void CreateFramebuffer(uint32_t screenWidth, uint32_t screenHeight) {

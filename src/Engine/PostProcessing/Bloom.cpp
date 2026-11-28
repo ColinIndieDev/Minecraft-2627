@@ -1,6 +1,6 @@
 #include "Bloom.hpp"
 
-#include "GLUtil.hpp"
+#include <GL/GLUtil.hpp>
 
 namespace Bloom {
     void CreateFramebuffers(uint32_t screenWidth, uint32_t screenHeight) {
